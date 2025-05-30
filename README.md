@@ -8,7 +8,7 @@ try of the data.
 We introduce GEDO, a graph- and topology-based method that infers gene
 module activity through a transition score quantifying the shift from healthy
 controls to diseased individuals. When applied to bulk RNA-seq data from
-Sj¨ogren’s disease patients and healthy controls (PRECISESADS cohort), GEDO
+Sjögren’s disease patients and healthy controls (PRECISESADS cohort), GEDO
 was benchmarked against PCA1 and the Mean of z-scores in classification and
 unsupervised clustering tasks.
 GEDO outperformed both approaches in predicting disease status and yielded
@@ -20,10 +20,11 @@ activity, with applications in single- and multi-omics integration. Its topology
 based design enables finer resolution of disease-related transcriptomic alterations.
 
 # 📂 Structure of the repository
-1. TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
-2. functions_article.R : functions for computing module matrices with all methods exepts GEDO, and ton run comparison analyses.
-3. GEDO_toy_example.R : script which run GEDO on random values generated directly in the script, and plot a heatmap. 
-4. GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
+1. docs/TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
+2. R/functions_article.R : functions for computing module matrices with all methods exepts GEDO, and ton run comparison analyses.
+3. R/GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
+4. scripts/GEDO_toy_example.R : script which run GEDO on random values generated directly in the script, and plot a heatmap. 
+5. scripts/compute_GEDO.qmd : Mardown Quarto to run GEDO and get figures.
 
 # 📄 Tutorial 
 👉 [See quarto tutorial](docs/TUTORIAL.md)
