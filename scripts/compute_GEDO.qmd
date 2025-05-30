@@ -9,6 +9,13 @@ execute:
   message: false
 ---
 
+```{r setup}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(fig.path = "/home/clem/GEDO/docs/figures/tutorial_")
+
+```
+
 # 1. Packages and functions
 
 ```{r packages and functions}
@@ -121,10 +128,6 @@ heatmap_png_height=615
 pointsize=10
 
 
-pdf(paste0(folder_for_res, "heatmap_gedo.pdf"), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-print(heatmap.ifn(gedo_obj = gedo_obj, IFN_score=ifn_score))
-dev.off()
-
 png(paste0(folder_for_res, "heatmap_gedo.png"), width = heatmap_png_width, height = heatmap_png_height, pointsize=pointsize)
 print(heatmap.ifn(gedo_obj = gedo_obj, IFN_score=ifn_score))
 dev.off()
@@ -136,9 +139,6 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha 
 ## Heatmap of GEDOcorr module matrix :
 
 ```{r heatmaps GEDO corr}
-pdf(paste0(folder_for_res, "heatmap_gedo_corr.pdf")) 
-print(heatmap.ifn(gedo_obj = gedo_corr_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize) 
-dev.off() 
 
 png(paste0(folder_for_res, "heatmap_gedo_corr.png")) 
 print(heatmap.ifn(gedo_obj = gedo_corr_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize) 
@@ -150,9 +150,6 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha 
 ## Heatmap of UMAP-GEDO module matrix :
 
 ```{r heatmap umap gedo}
-pdf(paste0(folder_for_res, "heatmap_umap_gedo.pdf"))
-print(heatmap.ifn(gedo_obj = umap_gedo_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
 
 png(paste0(folder_for_res, "heatmap_umap_gedo.png"))
 print(heatmap.ifn(gedo_obj = umap_gedo_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
@@ -266,74 +263,11 @@ saveRDS(mean_z_score_module_matrix, file=paste0(folder_for_res,"mzscore_obj.rds"
 }
 ```
 
-# 9. Class prediction performance (SjD vs. CTRL) for each gene module
-
-```{r auc of each module comparison}
-
-#| fig.width: 15
-#| fig.height: 7
-#| fig.align: "center"
-matrix_list = list(GEDO=gedo_obj, GEDOcorr = gedo_corr_obj, UMAP_GEDO=umap_gedo_obj,
-                   # PHATE_GEDO=phate_gedo_obj, 
-                   PCA1=pca1_module_matrix, MEAN_Z_SCORES=mean_z_score_module_matrix)
-
-res=compute_auc_modules(matrix_list = matrix_list)
-plot=res$plot
-ggsave(plot,file=paste0(folder_for_res,"module_auc_comparison.pdf"), height = 7, width = 15)
-saveRDS(res, file=paste0(folder_for_res, "module_auc_comparison.rds"))
-```
-
-AUC analysis of each gene module to classify SjD vs. CTRL.
-
-\(A\) AUC of ImmuneSigDB 4872 gene modules with GEDO, UMAP-GEDO, PCA1 and Mean of z-scores (significance by Wilcoxon test),
-
-\(B\) AUC of gene modules in comparison with GEDO. Red line: x=y line. Blue curve: quantile regression at the median (quantreg package in R, lambda=0.1).
-
-# 10. Module Matrices classification performance (SjD vs. CTRL)
-
-```{r rf and knn}
-
-#| fig.width: 15
-#| fig.height: 15
-#| fig.align: "center"
-
-
-if(file.exists(paste0(folder_for_res,"rf_results.rds"))){
-  rf_results=readRDS(paste0(folder_for_res,"rf_results.rds"))
-}else{
-rf_results = compute_prediction_with_ci(model = "rf", k=NULL, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
-saveRDS(rf_results, file=paste0(folder_for_res, "rf_results.rds"))  
-}
-
-if(file.exists(paste0(folder_for_res,"knn_results.rds"))){
-  knn_results=readRDS(paste0(folder_for_res,"knn_results.rds"))
-}else{
-knn_results = compute_prediction_with_ci(model = "knn", k=30, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
-saveRDS(knn_results, file=paste0(folder_for_res, "knn_results.rds"))  
-}
-
-
-roc_combined <- rf_results$roc_curves + knn_results$roc_curves + plot_layout(ncol = 2)
-  
-ggsave(roc_combined,file=paste0(folder_for_res,"rocs_rf_knn.pdf"), width = 15, height = 15)
-
-```
-
-ROC curves of modules matrices to classify SjD vs. CTRL.
-
-\(A\) Prediction with Random Forest (randomForest package in R, with 400 trees and default parameters),
-
-\(B\) Prediction with K-Nearest Neighbor algorithm (caret R package, with k=30)
-
-# 11. Heatmaps of module matrices
+# 9. Heatmaps of module matrices
 
 ## With PCA1 :
 
 ```{r heatmaps pca1}
-
-pdf(paste0(folder_for_res, "heatmap_PCA1.pdf"))
-print(heatmap.ifn(gedo_obj = pca1_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
 
 png(paste0(folder_for_res, "heatmap_PCA1.png"))
 print(heatmap.ifn(gedo_obj = pca1_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
@@ -347,9 +281,6 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha 
 
 ```{r heatmap of meanzscore}
 #MEAN z SCORE
-pdf(paste0(folder_for_res, "heatmap_mean_z_score.pdf"))
-print(heatmap.ifn(gedo_obj = mean_z_score_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
 
 png(paste0(folder_for_res, "heatmap_mean_z_score.png"))
 print(heatmap.ifn(gedo_obj = mean_z_score_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
@@ -358,6 +289,60 @@ dev.off()
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
 
+# 10. Class prediction performance (SjD vs. CTRL) for each gene module
+
+```{r auc of each module comparison}
+#| fig.width: 15 
+#| fig.height: 7
+#| fig.align: "center" 
+
+matrix_list = list(GEDO=gedo_obj, GEDOcorr = gedo_corr_obj, UMAP_GEDO=umap_gedo_obj,PCA1=pca1_module_matrix, MEAN_Z_SCORES=mean_z_score_module_matrix)
+
+res=compute_auc_modules(matrix_list = matrix_list)
+plot=res$plot
+print(plot)
+
+ggsave(plot,file=paste0(folder_for_res,"module_auc_comparison.pdf"), height = 7, width = 15)
+saveRDS(res, file=paste0(folder_for_res, "module_auc_comparison.rds"))
+```
+
+AUC analysis of each gene module to classify SjD vs. CTRL.
+
+\(A\) AUC of ImmuneSigDB 4872 gene modules with GEDO, UMAP-GEDO, PCA1 and Mean of z-scores (significance by Wilcoxon test),
+
+\(B\) AUC of gene modules in comparison with GEDO. Red line: x=y line. Blue curve: quantile regression at the median (quantreg package in R, lambda=0.1).
+
+# 11. Module Matrices classification performance (SjD vs. CTRL)
+
+```{r rf and knn}
+#| fig.width: 15
+#| fig.height: 15
+#| fig.align: "center"   
+
+if(file.exists(paste0(folder_for_res,"rf_results.rds"))){
+  rf_results=readRDS(paste0(folder_for_res,"rf_results.rds"))
+  }else{
+    rf_results = compute_prediction_with_ci(model = "rf", k=NULL, k_folds = 10, dt_lis=matrix_list, num_cores=num_cores)
+    saveRDS(rf_results, file=paste0(folder_for_res, "rf_results.rds"))
+  }
+    
+if(file.exists(paste0(folder_for_res,"knn_results.rds"))){
+  knn_results=readRDS(paste0(folder_for_res,"knn_results.rds"))
+  }else{
+    knn_results = compute_prediction_with_ci(model = "knn", k=30, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
+    saveRDS(knn_results, file=paste0(folder_for_res, "knn_results.rds"))
+    } 
+roc_combined <- rf_results$roc_curves + knn_results$roc_curves + plot_layout(ncol = 2)
+print(roc_combined)
+ggsave(roc_combined,file=paste0(folder_for_res,"rocs_rf_knn.pdf"), width = 15, height = 15)   
+```
+
+ROC curves of modules matrices to classify SjD vs. CTRL.
+
+\(C\) Prediction with Random Forest (randomForest package in R, with 400 trees and default parameters),
+
+\(D\) Prediction with K-Nearest Neighbor algorithm (caret R package, with k=30)
+
 # 12. Clustering quality evaluation
 
 ```{r clustering quality}
@@ -365,46 +350,29 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha 
 #| fig.height: 20
 #| fig.align: "center"
 
+if(file.exists(paste0(folder_for_res,"clustering_quality.rds"))){
+  cl_res = readRDS(paste0(folder_for_res,"clustering_quality.rds"))
+}else{
 cl_res = compute_clustering_quality(matrix_list = matrix_list, num_cores=num_cores)
+saveRDS(cl_res, file=paste0(folder_for_res,"clustering_quality.rds"))
+}
+
 clustering_plot=cl_res$plot
+print(clustering_plot)
 
-res$boxplot <- res$boxplot + theme(plot.margin = unit(c(0, 0, 0, 0), "cm"))
-res$combined_subplots <- res$combined_subplots + theme(plot.margin =  unit(c(0, 0, 0, 0), "cm"))
-roc_combined <- roc_combined + theme(plot.margin =  unit(c(0, 0, 0, 0), "cm"))
-clustering_plot <- clustering_plot + theme(plot.margin =  unit(c(0, 0, 0, 0), "cm"))
-
-
-spacer <- plot_spacer()
-
-cluster_row <- spacer + clustering_plot + spacer
-cluster_row <- cluster_row + plot_layout(widths = c(0.2, 0.6, 0.2))
-
-
-combined_plot <- 
-  res$boxplot /
-  spacer / 
-  res$combined_subplots /
-  spacer / 
-  roc_combined /
-  spacer / 
-  cluster_row +
-  plot_layout(heights = c(1, 0, 1, 0, 1, 0, 1))
-
-
-
-print(combined_plot)
-ggsave(combined_plot,file=paste0(folder_for_res,"module_auc_rocs_rf_knn_clustering.pdf" ), width = 15, height = 16)
+ggsave(clustering_plot,file=paste0(folder_for_res,"module_auc_rocs_rf_knn_clustering.pdf" ), width = 15, height = 16)
 ```
 
-Clustering quality with Average Silhouette Width (ASW) and Calinski-Harabasz Index (CHI).
-
-Dotted lines represent the mean value of each clustering metric across the number of clusters, computed within each method.
+\(E\) Clustering quality with Average Silhouette Width (ASW) and Calinski-Harabasz Index (CHI). Dotted lines represent the mean value of each clustering metric across the number of clusters, computed within each method.
 
 # 13. Enrichment of clinical features in PHATE visualizations
 
 ## GEDO :
 
 ```{r phate gedo Mm}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
@@ -420,6 +388,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## GEDOcorr :
 
 ```{r phate_gedo_corr}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
@@ -434,6 +405,9 @@ PHATE projection of module matrix obtained with GEDOcorr with phateR R package (
 ## UMAP-GEDO :
 
 ```{r phate umap gedo}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 
@@ -449,6 +423,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## PCA1 :
 
 ```{r phate pca 1}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 
@@ -464,6 +441,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## MEAN OF Z-SCORES :
 
 ```{r phate meanzscore}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
