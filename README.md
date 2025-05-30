@@ -22,7 +22,8 @@ based design enables finer resolution of disease-related transcriptomic alterati
 # Structure of the repository
 1. TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
 2. functions_article.R : functions for computing module matrices with all methods exepts GEDO, and ton run comparison analyses.
-3. GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
+3. GEDO_toy_example.R : script which run GEDO on random values generated directly in the script, and plot a heatmap. 
+4. GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
 
 # 📂 Tutorial 
 👉 [TUTORIAL.html](TUTORIAL.html)
