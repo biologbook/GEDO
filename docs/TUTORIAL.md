@@ -5,7 +5,7 @@
 # 1. Packages and functions
 
 ``` r
-folder_script_to_source = "~/these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Script/"
+folder_script_to_source = "/home/clem/GEDO/R/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -35,8 +35,9 @@ install_and_load(packages_list)
 # 2. Loading data
 
 ``` r
-PS_brutes <- readRDS("~/these_clement/studies/R_Thèse_clement_LBAI/0_Data/PRECISESADS/PS_phase_I_II/PS_brutes.rds")
-rna_seq_data = readRDS("~/these_clement/studies/R_Thèse_clement_LBAI/0_Data/PRECISESADS/data_omics_PS/Data/Transcriptomics/data_batch_corrected/bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds")
+folder_to_data ="/home/clem/GEDO/data/"
+PS_brutes <- readRDS(paste0(folder_to_data,"PS_brutes.rds"))
+rna_seq_data = readRDS(paste0(folder_to_data, "bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds"))
 rna_seq_data[, SAMPLING_OMIC_NUMBER:=paste0("N",SAMPLING_OMIC_NUMBER)]
 rna_seq_data[PS_brutes, diag := i.DIAGNOSIS_DISEASE_AT_ONSET, on="SAMPLING_OMIC_NUMBER"]
 rna_seq_data[PS_brutes, control:=i.DIAGNOSIS_ARM, on="SAMPLING_OMIC_NUMBER"]
@@ -60,7 +61,7 @@ rna_seq_data[, diag:=NULL][, SAMPLING_OMIC_NUMBER:=NULL][, control:=NULL]
 ## 3.1. Graph G with euclidean distances
 
 ``` r
-folder_for_res = "~/these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/"
+folder_for_res = "/home/clem/GEDO/results/"
 num_cores=5
 
 if(file.exists(paste0(folder_for_res, "gedo_obj.rds"))){
@@ -343,12 +344,6 @@ matrix_list = list(GEDO=gedo_obj, GEDOcorr = gedo_corr_obj, UMAP_GEDO=umap_gedo_
                    PCA1=pca1_module_matrix, MEAN_Z_SCORES=mean_z_score_module_matrix)
 
 res=compute_auc_modules(matrix_list = matrix_list)
-print(res$plot)
-```
-
-![](compute_GEDO_files/figure-commonmark/auc%20of%20each%20module%20comparison-1.png)
-
-``` r
 plot=res$plot
 ggsave(plot,file=paste0(folder_for_res,"module_auc_comparison.pdf"), height = 7, width = 15)
 saveRDS(res, file=paste0(folder_for_res, "module_auc_comparison.rds"))
@@ -389,10 +384,7 @@ saveRDS(knn_results, file=paste0(folder_for_res, "knn_results.rds"))
 roc_combined <- rf_results$roc_curves + knn_results$roc_curves + plot_layout(ncol = 2)
   
 ggsave(roc_combined,file=paste0(folder_for_res,"rocs_rf_knn.pdf"), width = 15, height = 15)
-print(roc_combined)
 ```
-
-![](compute_GEDO_files/figure-commonmark/rf%20and%20knn-1.png)
 
 ROC curves of modules matrices to classify SjD vs. CTRL.
 
@@ -527,11 +519,17 @@ the number of clusters, computed within each method.
 #| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_gedo)
+```
+
+![](compute_GEDO_files/figure-commonmark/phate%20gedo%20Mm-1.png)
+
+``` r
 ggsave(plot_gedo,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
 ```
 
-![](../these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/phate_clinical_features_gedo.pdf)
+![](../results/phate_clinical_features_gedo.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -547,11 +545,17 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 #| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_gedo_corr)
+```
+
+![](compute_GEDO_files/figure-commonmark/phate_gedo_corr-1.png)
+
+``` r
 ggsave(plot_gedo_corr,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
 ```
 
-![](../these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/phate_clinical_features_gedo_corr.pdf)
+![](../results/phate_clinical_features_gedo_corr.pdf)
 
 PHATE projection of module matrix obtained with GEDOcorr with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -565,12 +569,19 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_umap_gedo)
+```
+
+<img
+src="compute_GEDO_files/figure-commonmark/phate%20umap%20gedo-1.png"
+data-fig-align="center" />
+
+``` r
 ggsave(plot_umap_gedo,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
 ```
 
-<embed
-src="../these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/phate_clinical_features_umap_gedo.pdf"
+<embed src="../results/phate_clinical_features_umap_gedo.pdf"
 data-fig-align="center" />
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
@@ -588,11 +599,17 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_pca1)
+```
+
+![](compute_GEDO_files/figure-commonmark/phate%20pca%201-1.png)
+
+``` r
 ggsave(plot_pca1,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
 ```
 
-![](../these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/phate_clinical_features_pca1.pdf)
+![](../results/phate_clinical_features_pca1.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -608,11 +625,17 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 #| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_mean_zscore)
+```
+
+![](compute_GEDO_files/figure-commonmark/phate%20meanzscore-1.png)
+
+``` r
 ggsave(plot_mean_zscore,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
 ```
 
-![](../these_clement/studies/R_Thèse_clement_LBAI/11_GEDO/Out/last_run_3/phate_clinical_features_mean_z_score.pdf)
+![](../results/phate_clinical_features_mean_z_score.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL

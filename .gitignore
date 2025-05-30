@@ -2,3 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
+
+/GEDO.Rproj
+/data/**
+/results/**
+/R/GEDO.R
