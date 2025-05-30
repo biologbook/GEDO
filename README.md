@@ -20,7 +20,11 @@ activity, with applications in single- and multi-omics integration. Its topology
 based design enables finer resolution of disease-related transcriptomic alterations.
 
 # Structure of the repository
+1. TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
+2. functions_article.R : functions for computing module matrices with all methods exepts GEDO, and ton run comparison analyses.
+3. GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
 
-# Quatro render
-👉 [(.html)](compute_GEDO.html)
+# 📂 Tutorial 
+👉 [TUTORIAL.html](TUTORIAL.html)
+
 
