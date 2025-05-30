@@ -22,5 +22,5 @@ based design enables finer resolution of disease-related transcriptomic alterati
 # Structure of the repository
 
 # Quatro render
-👉 [(.html)](comput_gedo.html)
+👉 [(.html)](compute_GEDO.html)
 
