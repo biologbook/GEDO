@@ -1,6 +1,6 @@
-
 GEDO - Topology-based inference of gene module activity in Sjögren’s disease.
-#📘 Abstract
+
+# 📘 Abstract
 Inferring gene module activity is key to understanding transcriptomic dysregu-
 lation in case-control studies. Most existing Gene Set Analysis methods focus on
 the relative positioning of data points without considering the complex geome-
@@ -19,7 +19,7 @@ GEDO offers a robust, interpretable framework for quantifying gene modules
 activity, with applications in single- and multi-omics integration. Its topology-
 based design enables finer resolution of disease-related transcriptomic alterations.
 
-#📂 Structure of the repository
+# 📂 Structure of the repository
 1. TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
 2. functions_article.R : functions for computing module matrices with all methods exepts GEDO, and ton run comparison analyses.
 3. GEDO_toy_example.R : script which run GEDO on random values generated directly in the script, and plot a heatmap. 
