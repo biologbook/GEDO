@@ -26,6 +26,6 @@ based design enables finer resolution of disease-related transcriptomic alterati
 4. GEDO.R : not provided in this repository. Contain functions necessary to run GEDO algorithm. This script can be shared upon request to the authors, and under certain conditions. 
 
 # 📄 Tutorial 
-👉 [TUTORIAL.html](TUTORIAL.html)
+👉 [See quarto tutorial](TUTORIAL.md)
 
 
