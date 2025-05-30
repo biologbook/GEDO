@@ -123,26 +123,17 @@ heatmap_png_height=615
 pointsize=10
 
 
-pdf(paste0(folder_for_res, "heatmap_gedo.pdf"), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-print(heatmap.ifn(gedo_obj = gedo_obj, IFN_score=ifn_score))
-```
-
-![](./home/clem/GEDO/docs/figures/tutorial_heatmaps%20GEDO-1.png)
-
-``` r
-dev.off()
-```
-
-    pdf 
-      3 
-
-``` r
 png(paste0(folder_for_res, "heatmap_gedo.png"), width = heatmap_png_width, height = heatmap_png_height, pointsize=pointsize)
 print(heatmap.ifn(gedo_obj = gedo_obj, IFN_score=ifn_score))
+```
+
+![](../docs/figures/tutorial_heatmaps%20GEDO-1.png)
+
+``` r
 dev.off()
 ```
 
-    pdf 
+    png 
       3 
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
@@ -151,26 +142,17 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
 ## Heatmap of GEDOcorr module matrix :
 
 ``` r
-pdf(paste0(folder_for_res, "heatmap_gedo_corr.pdf")) 
-print(heatmap.ifn(gedo_obj = gedo_corr_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize) 
-```
-
-![](./home/clem/GEDO/docs/figures/tutorial_heatmaps%20GEDO%20corr-1.png)
-
-``` r
-dev.off() 
-```
-
-    pdf 
-      3 
-
-``` r
 png(paste0(folder_for_res, "heatmap_gedo_corr.png")) 
 print(heatmap.ifn(gedo_obj = gedo_corr_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize) 
+```
+
+![](../docs/figures/tutorial_heatmaps%20GEDO%20corr-1.png)
+
+``` r
 dev.off() 
 ```
 
-    pdf 
+    png 
       3 
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
@@ -179,26 +161,17 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
 ## Heatmap of UMAP-GEDO module matrix :
 
 ``` r
-pdf(paste0(folder_for_res, "heatmap_umap_gedo.pdf"))
-print(heatmap.ifn(gedo_obj = umap_gedo_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-```
-
-![](./home/clem/GEDO/docs/figures/tutorial_heatmap%20umap%20gedo-1.png)
-
-``` r
-dev.off()
-```
-
-    pdf 
-      3 
-
-``` r
 png(paste0(folder_for_res, "heatmap_umap_gedo.png"))
 print(heatmap.ifn(gedo_obj = umap_gedo_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
+```
+
+![](../docs/figures/tutorial_heatmap%20umap%20gedo-1.png)
+
+``` r
 dev.off()
 ```
 
-    pdf 
+    png 
       3 
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
@@ -210,7 +183,7 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
 auc = gedo.module.auc(gedo_obj)
 ```
 
-<img src="./home/clem/GEDO/docs/figures/tutorial_auc%20gedo-1.png"
+<img src="../docs/figures/tutorial_auc%20gedo-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -238,8 +211,7 @@ plot=plots_module$combined_plot
 print(plot)
 ```
 
-<img
-src="./home/clem/GEDO/docs/figures/tutorial_detail%20one%20module-1.png"
+<img src="../docs/figures/tutorial_detail%20one%20module-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -282,7 +254,7 @@ plot_random=plots_module_random$combined_plot
 print(plot_random)
 ```
 
-<img src="./home/clem/GEDO/docs/figures/tutorial_overfitting-1.png"
+<img src="../docs/figures/tutorial_overfitting-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -338,26 +310,17 @@ saveRDS(mean_z_score_module_matrix, file=paste0(folder_for_res,"mzscore_obj.rds"
 ## With PCA1 :
 
 ``` r
-pdf(paste0(folder_for_res, "heatmap_PCA1.pdf"))
-print(heatmap.ifn(gedo_obj = pca1_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-```
-
-![](./home/clem/GEDO/docs/figures/tutorial_heatmaps%20pca1-1.png)
-
-``` r
-dev.off()
-```
-
-    pdf 
-      3 
-
-``` r
 png(paste0(folder_for_res, "heatmap_PCA1.png"))
 print(heatmap.ifn(gedo_obj = pca1_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
+```
+
+![](../docs/figures/tutorial_heatmaps%20pca1-1.png)
+
+``` r
 dev.off()
 ```
 
-    pdf 
+    png 
       3 
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
@@ -367,26 +330,18 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
 
 ``` r
 #MEAN z SCORE
-pdf(paste0(folder_for_res, "heatmap_mean_z_score.pdf"))
-print(heatmap.ifn(gedo_obj = mean_z_score_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-```
 
-![](./home/clem/GEDO/docs/figures/tutorial_heatmap%20of%20meanzscore-1.png)
-
-``` r
-dev.off()
-```
-
-    pdf 
-      3 
-
-``` r
 png(paste0(folder_for_res, "heatmap_mean_z_score.png"))
 print(heatmap.ifn(gedo_obj = mean_z_score_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
+```
+
+![](../docs/figures/tutorial_heatmap%20of%20meanzscore-1.png)
+
+``` r
 dev.off()
 ```
 
-    pdf 
+    png 
       3 
 
 IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression
@@ -403,7 +358,7 @@ print(plot)
 ```
 
 <img
-src="./home/clem/GEDO/docs/figures/tutorial_auc%20of%20each%20module%20comparison-1.png"
+src="../docs/figures/tutorial_auc%20of%20each%20module%20comparison-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -440,7 +395,7 @@ roc_combined <- rf_results$roc_curves + knn_results$roc_curves + plot_layout(nco
 print(roc_combined)
 ```
 
-<img src="./home/clem/GEDO/docs/figures/tutorial_rf%20and%20knn-1.png"
+<img src="../docs/figures/tutorial_rf%20and%20knn-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -469,8 +424,7 @@ clustering_plot=cl_res$plot
 print(clustering_plot)
 ```
 
-<img
-src="./home/clem/GEDO/docs/figures/tutorial_clustering%20quality-1.png"
+<img src="../docs/figures/tutorial_clustering%20quality-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -492,8 +446,7 @@ plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = P
 print(plot_gedo)
 ```
 
-<img
-src="./home/clem/GEDO/docs/figures/tutorial_phate%20gedo%20Mm-1.png"
+<img src="../docs/figures/tutorial_phate%20gedo%20Mm-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -515,7 +468,7 @@ plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta
 print(plot_gedo_corr)
 ```
 
-<img src="./home/clem/GEDO/docs/figures/tutorial_phate_gedo_corr-1.png"
+<img src="../docs/figures/tutorial_phate_gedo_corr-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -538,8 +491,7 @@ plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, met
 print(plot_umap_gedo)
 ```
 
-<img
-src="./home/clem/GEDO/docs/figures/tutorial_phate%20umap%20gedo-1.png"
+<img src="../docs/figures/tutorial_phate%20umap%20gedo-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -562,7 +514,7 @@ plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = P
 print(plot_pca1)
 ```
 
-<img src="./home/clem/GEDO/docs/figures/tutorial_phate%20pca%201-1.png"
+<img src="../docs/figures/tutorial_phate%20pca%201-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -584,8 +536,7 @@ plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 1
 print(plot_mean_zscore)
 ```
 
-<img
-src="./home/clem/GEDO/docs/figures/tutorial_phate%20meanzscore-1.png"
+<img src="../docs/figures/tutorial_phate%20meanzscore-1.png"
 data-fig-align="center" />
 
 ``` r
@@ -672,7 +623,7 @@ plot = ggplot(summary_stats, aes(x = expression, y = median_minutes)) +
 print(plot)
 ```
 
-![](./home/clem/GEDO/docs/figures/tutorial_benchmark-1.png)
+![](../docs/figures/tutorial_benchmark-1.png)
 
 ``` r
 ggsave(plot,file=paste0(folder_for_res, "benchmark_res.pdf"))

@@ -12,7 +12,7 @@ execute:
 ```{r setup}
 #| label: setup
 #| include: false
-knitr::opts_chunk$set(fig.path = "/home/clem/GEDO/docs/figures/tutorial_")
+knitr::opts_chunk$set(fig.path = "../docs/figures/tutorial_")
 
 ```
 
