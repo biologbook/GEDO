@@ -20,3 +20,7 @@ activity, with applications in single- and multi-omics integration. Its topology
 based design enables finer resolution of disease-related transcriptomic alterations.
 
 # Structure of the repository
+
+# Quatro render
+👉 [(.html)](comput_gedo.html)
+
