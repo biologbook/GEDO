@@ -526,10 +526,8 @@ print(plot_gedo)
 
 ``` r
 ggsave(plot_gedo,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
 ```
-
-![](../results/phate_clinical_features_gedo.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -552,10 +550,8 @@ print(plot_gedo_corr)
 
 ``` r
 ggsave(plot_gedo_corr,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
 ```
-
-![](../results/phate_clinical_features_gedo_corr.pdf)
 
 PHATE projection of module matrix obtained with GEDOcorr with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -578,11 +574,8 @@ data-fig-align="center" />
 
 ``` r
 ggsave(plot_umap_gedo,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
 ```
-
-<embed src="../results/phate_clinical_features_umap_gedo.pdf"
-data-fig-align="center" />
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -606,10 +599,8 @@ print(plot_pca1)
 
 ``` r
 ggsave(plot_pca1,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
 ```
-
-![](../results/phate_clinical_features_pca1.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL
@@ -632,10 +623,8 @@ print(plot_mean_zscore)
 
 ``` r
 ggsave(plot_mean_zscore,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
 ```
-
-![](../results/phate_clinical_features_mean_z_score.pdf)
 
 PHATE projection of module matrix obtained with UMAP-GEDO with phateR R
 package (k=15, euclidean distances), colored by : (A) Status (CTRL

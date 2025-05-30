@@ -413,7 +413,7 @@ use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo)
 ggsave(plot_gedo,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
 
 
 ```
@@ -431,7 +431,7 @@ use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo_corr)
 ggsave(plot_gedo_corr,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
 
 ```
 
@@ -448,7 +448,7 @@ use_python("/usr/bin/python3", required = TRUE)
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_umap_gedo)
 ggsave(plot_umap_gedo,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
 
 ```
 
@@ -466,7 +466,7 @@ use_python("/usr/bin/python3", required = TRUE)
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_pca1)
 ggsave(plot_pca1,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
 
 ```
 
@@ -484,7 +484,7 @@ use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_mean_zscore)
 ggsave(plot_mean_zscore,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
-knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
+# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
 
 ```
 
