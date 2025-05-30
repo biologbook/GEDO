@@ -514,9 +514,6 @@ the number of clusters, computed within each method.
 ## GEDO :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo)
@@ -538,9 +535,6 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## GEDOcorr :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo_corr)
@@ -568,9 +562,7 @@ plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, met
 print(plot_umap_gedo)
 ```
 
-<img
-src="compute_GEDO_files/figure-commonmark/phate%20umap%20gedo-1.png"
-data-fig-align="center" />
+![](compute_GEDO_files/figure-commonmark/phate%20umap%20gedo-1.png)
 
 ``` r
 ggsave(plot_umap_gedo,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
@@ -586,9 +578,6 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## PCA1 :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
@@ -611,9 +600,6 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## MEAN OF Z-SCORES :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_mean_zscore)

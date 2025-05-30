@@ -406,9 +406,6 @@ Dotted lines represent the mean value of each clustering metric across the numbe
 
 ```{r phate gedo Mm}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo)
@@ -424,9 +421,6 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 
 ```{r phate_gedo_corr}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo_corr)
@@ -440,9 +434,7 @@ PHATE projection of module matrix obtained with GEDOcorr with phateR R package (
 ## UMAP-GEDO :
 
 ```{r phate umap gedo}
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
+
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
@@ -458,9 +450,6 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 
 ```{r phate pca 1}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
@@ -476,10 +465,6 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 
 ```{r phate meanzscore}
 
-
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_mean_zscore)
