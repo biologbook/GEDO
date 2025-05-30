@@ -1,5 +1,7 @@
 GEDO - Topology-based inference of gene module activity in Sjögren’s disease.
 
+doi : 
+
 # 📘 Abstract
 Inferring gene module activity is key to understanding transcriptomic dysregu-
 lation in case-control studies. Most existing Gene Set Analysis methods focus on
