@@ -36,7 +36,7 @@ detach_all_packages <- function() {
 
 
 
-heatmap.ifn=function(gedo_obj, title="", IFN_score){
+heatmap.ifn=function(gedo_obj, title="", IFN_score, legend, annotation_legend){
   #1. preparation of data
   diag = gedo_obj$diag
   module_matrix = as.matrix(gedo_obj$module_matrix)
@@ -67,7 +67,9 @@ heatmap.ifn=function(gedo_obj, title="", IFN_score){
     show_colnames = FALSE,             
     scale = "none",                    
     annotation_names_row=F,
-    main=title
+    main=title,
+    annotation_legend=annotation_legend,
+    legend=legend
   )
   return(heatmap)
 }
@@ -81,9 +83,17 @@ heatmap.ifn=function(gedo_obj, title="", IFN_score){
 #' @param diag character vector with two groups : Controls and Diseased. diag must correspond to lines in data. 
 #' @param reference_group character with the name of control group in diag.
 
-compute_pca1=function(data, module_name, diag, reference_group){ 
-                                 
-
+compute_pca1=function(data, module_name, diag, reference_group, category, subcategory, charge_reactome_modules=F){ 
+  
+  
+  #0. if necessary, chargind reactome modules
+  if(charge_reactome_modules==T){
+    reactome_modules <- data.table(msigdbr(species = "Homo sapiens", collection = category, subcollection = subcategory))
+    reactome_modules <- reactome_modules[, .SD, .SDcols = c("gs_name", "ensembl_gene")]
+    module_number = length(unique(reactome_modules$gs_name))
+    modules = unique(reactome_modules$gs_name)
+  }               
+  
   #1. Selecting data for the module
   genes_in_module =  unique(reactome_modules[gs_name == module_name]$ensembl_gene)
   genes_in_data = colnames(data)
@@ -92,7 +102,7 @@ compute_pca1=function(data, module_name, diag, reference_group){
   data_module = data[,..genes_to_keep, with=F]
   
   
- #2. PCA
+  #2. PCA
   pca_result <- prcomp(data_module, center = TRUE, scale. = TRUE)
   pc1_values <- pca_result$x[, 1]
   
@@ -256,6 +266,10 @@ gedo.module.auc=function(gedo_obj){
 compute_module_matrix = function(method, data, diag, reference_group, category, subcategory, num_cores=NULL){
   if(is.null(num_cores)){num_cores <- detectCores() - 1}
   
+  packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                    "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                    "future.apply","dbscan", "progressr",
+                    "gridExtra","MASS","ggplot2", "patchwork", "dplyr", "tidyr","parallel","reticulate", "tryCatchLog")
   #1. Config file
   config=list(
     groups= table(diag),
@@ -272,7 +286,7 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
   module_number = length(unique(reactome_modules$gs_name))
   modules = unique(reactome_modules$gs_name)
   
-
+  
   #3. Verifications on diag vector
   if(length(unique(diag))>2){
     print("Error : more than two classes in diag") 
@@ -286,8 +300,8 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
   
   
   #4. Computing PCA1 or mean of z-scores for each modules
-
-  plan(multisession, workers = num_cores)
+  
+  plan(multicore, workers = num_cores)
   handlers("txtprogressbar") 
   cat("Parallelization on modules","\n")
   
@@ -295,25 +309,27 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
   
   #4.1. PCA1
   if(method=="pca1"){
-  module_matrix_list = with_progress({
-    p <- progressor(along = modules)
-    
-    future_lapply(modules, function(module_name) {
-      p(message = sprintf("Module: %s", module_name))
+    module_matrix_list = with_progress({
+      p <- progressor(along = modules)
       
-      tryCatch({
-        res = as.numeric(compute_pca1(
-          data = data,
-          module_name = module_name,
-          diag = diag,
-          reference_group = reference_group))
-        return(res)
-      }, error = function(e) {
-        cat("Error in module:", module_name, "\nMessage:", e$message, "\n")
-        return(NULL)
-      })
-    }, future.seed=T, future.globals = c(export, list(p=p)), future.packages = packages_list)
-  })
+      future_lapply(modules, function(module_name) {
+        p(message = sprintf("Module: %s", module_name))
+        library(tryCatchLog)
+        
+        
+        tryCatch({
+          res = as.numeric(compute_pca1(
+            data = data,
+            module_name = module_name,
+            diag = diag,
+            reference_group = reference_group))
+          return(res)
+        }, error = function(e) {
+          cat("Error in module:", module_name, "\nMessage:", e$message, "\n")
+          return(NULL)
+        })
+      }, future.seed=T, future.globals = c(export, list(p=p)), future.packages = packages_list)
+    })
   }
   
   
@@ -324,6 +340,8 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
       
       future_lapply(modules, function(module_name) {
         p(message = sprintf("Module: %s", module_name))
+        library(tryCatchLog)
+        
         
         tryCatch({
           res = as.numeric(compute_mean_z_score(
@@ -349,7 +367,7 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
   
   
   
- 
+  
   
   #5. Return gedo-like object
   module_matrix_obj=list(
@@ -357,7 +375,7 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
     config=config,
     diag=diag
   )
-    return(module_matrix_obj)
+  return(module_matrix_obj)
 }
 
 
@@ -369,16 +387,16 @@ compute_auc_modules = function(matrix_list){
   
   #1. Computing AUC for each module and each element of matrix_list
   auc_results <- list()
-
+  
   for(metric_name in names(matrix_list)){
-    # print(metric_name)
+    print(metric_name)
     obj = matrix_list[[metric_name]]
     dt = obj$module_matrix
     modules = colnames(dt)
     dt$diag = obj$diag
     
     for (pathway in setdiff(x = colnames(dt), y = c("diag"))) {
-      # print(pathway)
+      print(paste("method=", metric_name, ". module=", pathway))
       auc_value <- auc(dt$diag, dt[[pathway]])
       
       auc_results <- append(auc_results, list(data.table(
@@ -419,13 +437,13 @@ compute_auc_modules = function(matrix_list){
       label = "p.signif",
       hide.ns = TRUE
     )+
-    labs(x="Module Scoring Method", y="AUC", title="(A)")+
+    labs(x="Module Scoring Method", y="AUC", title="a")+
     coord_flip()
   
   
   #3. AUC face to face
   auc_wide <- dcast(dt_auc_results, pathway ~ metric, value.var = "auc")
- 
+  
   plot_list=list()
   
   for(m in metrics_other_the_best){
@@ -439,25 +457,25 @@ compute_auc_modules = function(matrix_list){
       ylim(c(0.5,1))+
       coord_fixed() 
     if(m ==metrics_other_the_best[[1]]){
-    plot=plot+labs(
-      title = "(B)",
-      x = paste0("AUC (",m,")"),
-      y = paste0("AUC (", best_metric, ")")
-    )}else{
       plot=plot+labs(
+        title = "b",
         x = paste0("AUC (",m,")"),
         y = paste0("AUC (", best_metric, ")")
-      ) 
-    }
+      )}else{
+        plot=plot+labs(
+          x = paste0("AUC (",m,")"),
+          y = paste0("AUC (", best_metric, ")")
+        ) 
+      }
     
     
     plot_list=list.append(plot_list, plot) 
   }
   
   #4. return combined plot
-  combined_subplots <- Reduce(`+`, plot_list) + plot_layout(ncol = 4)
+  combined_subplots <- Reduce(`+`, plot_list) + plot_layout(ncol = length(metrics_other_the_best)/2)
   combined_plot <- boxplot / (Reduce(`+`, plot_list) + plot_layout(ncol = length(matrix_list)))
-  list_to_return=list(dt_auc_results=auc_results, plot=combined_plot, boxplot=boxplot, combined_subplots=combined_subplots)
+  list_to_return=list(dt_auc_results=dt_auc_results, auc_wide=auc_wide, plot=combined_plot, boxplot=boxplot, combined_subplots=combined_subplots)
   
   return(list_to_return)
 }
@@ -627,6 +645,9 @@ compute_prediction_with_ci <- function(model = "knn", k, k_folds = 10, dt_list, 
     
     # Setup parallel processing
     plan(multisession, workers = num_cores)
+    #or
+    # plan(sequential)
+    
     handlers("txtprogressbar")
     
     cat(paste0("Metric : ", dt_name), "\n")
@@ -711,19 +732,19 @@ compute_prediction_with_ci <- function(model = "knn", k, k_folds = 10, dt_list, 
   if (model == "rf") {
     plot <- ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
       geom_line(size = 0.5) +
-      labs(title = "(C)", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
+      labs(title = "c", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
       theme_minimal() +
       guides(color = "none")
   }
   if (model == "knn") {
     plot <- ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
       geom_line(size = 0.5) +
-      labs(title = "(D)", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
+      labs(title = "d", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
       theme_minimal()
   }
   
   # Return summary results and plot
-  list_to_return = list(auc_results = res_table, roc_curves = plot)
+  list_to_return = list(auc_results = res_table, roc_curves = plot, roc_curves_obj=roc_curves)
   return(list_to_return)
 }
 
@@ -790,13 +811,25 @@ evaluate_clustering <- function(mat_name, mat) {
 compute_clustering_quality = function(matrix_list, num_cores=NULL){
   if(is.null(num_cores)){num_cores <- detectCores() - 1}
   
+  
+  
   plan(multisession, workers = num_cores)
-
+  #plan(sequential)
+  #handlers("txtprogressbar")
+  
   #1. compute clustering metrics
+  
+  export = list(matrix_list=matrix_list,
+                evaluate_clustering=evaluate_clustering,
+                calculate_asw=calculate_asw,
+                calculate_calinski_harabasz=calculate_calinski_harabasz)
+  
+  
+  
   cl_res_list=future_lapply(names(matrix_list), FUN = function(mat_name){
     cat(paste0(mat_name,"\n"))
     return(evaluate_clustering(mat_name, mat = matrix_list[[mat_name]]$module_matrix))
-  }, future.seed=T)
+  }, future.seed=T, future.globals = export, future.packages=packages_list)
   
   results <- data.table(do.call(rbind, cl_res_list))
   
@@ -806,7 +839,7 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
   desired_order <- names(matrix_list)
   results[, Dataset := factor(Dataset, levels = desired_order)]
   means[, Dataset := factor(Dataset, levels = desired_order)]
-
+  
   p <- ggplot(results, aes(x = Clusters, y = Value, color = Dataset)) +
     geom_line() +
     geom_point() +
@@ -817,14 +850,14 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
       show.legend = FALSE  
     ) +
     facet_wrap(~Metric, scales = "free_y") +
-    labs(x = "Number of clusters", y = "Indice", color = "Module Scoring Method", title="(E)") +
+    labs(x = "Number of clusters", y = "Indice", color = "Module Scoring Method", title="e") +
     theme_minimal()
   
   
   return(list(plot=p, res=results))
   
 }
-  
+
 
 #' plot PHATE projections of module matrices
 #' @param data one module matrix to project : data.table with modules in column and individuals in line.
@@ -843,49 +876,64 @@ plot_phate=function(data, k, meta_data){
   phate$diag=diag
   
   #2. plots
-  p1 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = factor(diag))) +
-    geom_point(size=1.5, alpha=0.5) +
-    theme_minimal()+
-    labs(color="DIAGNOSIS", title="(A)")+
-    scale_color_manual(values = c("Control"="green","SjD"="blue"))
+  p1 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = factor(diag))) +
+                 geom_point(size=1.5, alpha=0.5) +
+                 theme_minimal()+
+                 labs(color="DIAGNOSIS")+
+                 scale_color_manual(values = c("Control"="green","SjD"="blue")))
   
-  p2 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = EXPRESSION_PRECISESADS_IFN)) +
-    geom_point(size = 1.5, alpha = 0.7) +
-    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
-    theme_minimal()+
-    labs(color="IFN score", title="(B)")
+  p2 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = EXPRESSION_PRECISESADS_IFN)) +
+                 geom_point(size = 1.5, alpha = 0.7) +
+                 scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+                 theme_minimal()+
+                 labs(color="IFN score")
+  )
   
-  p3 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA)) +
-    geom_point(size = 1.5, alpha = 0.7) +
-    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
-    theme_minimal()+
-    labs(color="SSA Autoantibodies", title="(C)")
+  p3 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA)) +
+                 geom_point(size = 1.5, alpha = 0.7) +
+                 scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+                 theme_minimal()+
+                 labs(color="SSA Autoantibodies"))
   
-  p4 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_52)) +
-    geom_point(size = 1.5, alpha = 0.7) +
-    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
-    theme_minimal()+
-    labs(color="SSA-52 Autoantibodies", title="(D)")
+  p4 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_52)) +
+                 geom_point(size = 1.5, alpha = 0.7) +
+                 scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+                 theme_minimal()+
+                 labs(color="SSA-52 Autoantibodies"))
   
-  p5 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_60)) +
-    geom_point(size = 1.5, alpha = 0.7) +
-    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
-    theme_minimal()+
-    labs(color="SSA-60 Autoantibodies", title="(E)")
+  p5 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_60)) +
+                 geom_point(size = 1.5, alpha = 0.7) +
+                 scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+                 theme_minimal()+
+                 labs(color="SSA-60 Autoantibodies"))
   
-  p6 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSB)) +
-    geom_point(size = 1.5, alpha = 0.7) +
-    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
-    theme_minimal()+
-    labs(color="SSB Autoantibodies", title="(F)")
+  p6 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSB)) +
+                 geom_point(size = 1.5, alpha = 0.7) +
+                 scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+                 theme_minimal()+
+                 labs(color="SSB Autoantibodies"))
   
+  a <- wrap_elements(full = p1)
+  b <- wrap_elements(full = p2)
+  c <- wrap_elements(full = p3)
+  d <- wrap_elements(full = p4)
+  e <- wrap_elements(full = p5)
+  f <- wrap_elements(full = p6)
   
-  #3. return combined plot
-  plot_list=list(p1,p2,p3,p4,p5,p6)
-  combined_plots <- Reduce(`+`, plot_list)
-  return(combined_plots)
+  comb <- a/b/c/d/e/f  +
+    plot_layout(ncol = 3, guides = "collect") +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+  
+  # #3. return combined plot
+  # plot_list=list(p1,p2,p3,p4,p5,p6)
+  # combined_plots <- Reduce(`+`, plot_list)
+  return(list(plot=comb, phate=phate))
 }
-  
+
 
 
 #' plot UMAP projections of gene modules in the patient space
@@ -921,27 +969,27 @@ plot_umap_modules=function(matrix_list, k, distance_metric){
   
   
   plot_gedo = ggplot(umap_list$GEDO, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
-    geom_point(alpha=0.5)+ labs(title = "(A)")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
+    geom_point(alpha=0.5)+ labs(title = "a")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   plot_umap_gedo = ggplot(umap_list$UMAP_GEDO, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
-    geom_point(alpha=0.5)+ labs(title = "(B)")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
+    geom_point(alpha=0.5)+ labs(title = "b")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   plot_umap_pca1 = ggplot(umap_list$PCA1, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
-    geom_point(alpha=0.5)+ labs(title = "(C)")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
+    geom_point(alpha=0.5)+ labs(title = "c")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   plot_umap_m_zscore = ggplot(umap_list$MEAN_Z_SCORES, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
-    geom_point(alpha=0.5)+ labs(title = "(D)")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
+    geom_point(alpha=0.5)+ labs(title = "d")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   
   plot_list=list(plot_gedo, plot_umap_gedo, plot_umap_pca1, plot_umap_m_zscore)
   
   combined_plots <- Reduce(`+`, plot_list)
   return(combined_plots)
   
-  }
-  
-  
-  
-  
-  
-  
-  
+}
+
+
+
+
+
+
+
 
 
 

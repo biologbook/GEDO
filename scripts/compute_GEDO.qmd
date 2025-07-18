@@ -9,11 +9,11 @@ execute:
   message: false
 ---
 
-```{r setup}
+```{r setup figure}
+
 #| label: setup
 #| include: false
 knitr::opts_chunk$set(fig.path = "../docs/figures/tutorial_")
-
 ```
 
 # 1. Packages and functions
@@ -29,7 +29,7 @@ packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
                   "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
                   "future.apply","dbscan", "progressr","pheatmap",
                   "gridExtra","MASS","plotly","ggplot2", "patchwork",
-                  "caret","randomForest", "dplyr", "tidyr","parallel", "pROC", "ggpubr","fpc","cluster","phateR","reticulate", "devtools", "bench","RANN")
+                  "caret","randomForest", "dplyr", "tidyr","parallel", "pROC", "ggpubr","fpc","cluster","phateR","reticulate", "devtools", "bench","RANN", "GSVA", "BiocParallel", "visdat", "magick", "ggbreak","cowplot","grid")
 
 install_and_load(packages_list)
 ```
@@ -37,6 +37,7 @@ install_and_load(packages_list)
 # 2. Loading data
 
 ```{r loading data}
+
 folder_to_data ="/home/clem/GEDO/data/"
 PS_brutes <- readRDS(paste0(folder_to_data,"PS_brutes.rds"))
 rna_seq_data = readRDS(paste0(folder_to_data, "bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds"))
@@ -56,6 +57,83 @@ ifn_score_table=data.table(SAMPLING_OMIC_NUMBER=omic_id)
 ifn_score_table[PS_brutes, IFN_score := i.EXPRESSION_PRECISESADS_IFN, on="SAMPLING_OMIC_NUMBER"]
 ifn_score=ifn_score_table$IFN_score
 rna_seq_data[, diag:=NULL][, SAMPLING_OMIC_NUMBER:=NULL][, control:=NULL]
+folder_for_res = "/home/clem/GEDO/results/"
+num_cores=3
+
+
+```
+
+```{r noizy data}
+
+  dt <- copy(rna_seq_data)   
+  set.seed(123)             
+  n_genes <- ncol(dt)
+  n_indiv <- nrow(dt)
+  
+  #Random selection
+  genes_idx <- sample(n_genes, floor(0.75 * n_genes))
+  indiv_idx <- sample(n_indiv, floor(0.50 * n_indiv))
+  
+  #Bias creation
+  bias_matrix <- matrix(
+    rnorm(length(indiv_idx) * length(genes_idx), mean = 1.5, sd = 1),
+    nrow = length(indiv_idx),
+    ncol = length(genes_idx)
+  )
+  
+  #Bias application
+  dt_biased <- as.matrix(copy(dt))
+  dt_biased[indiv_idx, genes_idx] <- dt_biased[indiv_idx, genes_idx] + bias_matrix
+  rna_seq_data_noized=data.table(dt_biased)
+  
+  #Differences 
+  mat_orig   <- as.matrix(dt)
+  mat_noised <- as.matrix(rna_seq_data_noized)
+  modif_num  <- (mat_orig != mat_noised) * 1
+  pct_modif  <- sum(modif_num) / prod(dim(modif_num)) * 100
+  message(sprintf("Modified cells : %.1f%%", pct_modif))
+  
+  
+  diff_matrix = as.matrix(rna_seq_data)==as.matrix(rna_seq_data_noized)
+  diff_matrix[diff_matrix== FALSE] <- NA
+    
+  plot_noized_data <- vis_miss(
+      data.table(diff_matrix),
+      cluster         = TRUE,
+      sort_miss       = TRUE,
+      warn_large_data = FALSE
+    )
+    
+    plot_noized_data=plot_noized_data +
+      labs(x = "genes", y = "individuals") +
+      scale_fill_manual(
+        name   = "RNAseq data",                
+        values = c("FALSE" = "grey95",    
+                   "TRUE"  = "#238A8DFF"),   
+        breaks = c(FALSE, TRUE),          
+        labels = c("Identical", "Biased") 
+      ) +
+      theme(
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks  = element_blank(),
+        panel.grid  = element_blank(),
+        plot.title=element_text(face="bold")
+      )
+    
+  saveRDS(object = as_grob(plot_noized_data), file=paste0(folder_for_res,"f.rds"))
+
+  
+  #Standardisation between 0 and 1
+  rna_seq_data_noized[, (names(rna_seq_data_noized)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE))), .SDcols = names(rna_seq_data_noized)]
+  
+  
+  #Verification
+  cat(sprintf("Bias applied on  %d genes × %d individuals\n",
+              length(genes_idx), length(indiv_idx)))
+  
+  rm(dt_biased)
+
 ```
 
 # 3. Computing GEDO
@@ -63,8 +141,6 @@ rna_seq_data[, diag:=NULL][, SAMPLING_OMIC_NUMBER:=NULL][, control:=NULL]
 ## 3.1. Graph G with euclidean distances
 
 ```{r gedo}
-folder_for_res = "/home/clem/GEDO/results/"
-num_cores=5
 
 if(file.exists(paste0(folder_for_res, "gedo_obj.rds"))){
   gedo_obj = readRDS(paste0(folder_for_res, "gedo_obj.rds"))
@@ -77,6 +153,23 @@ gedo_obj = gedo(data = rna_seq_data, diag = diag, reference_group = "Control",
 saveRDS(gedo_obj, file=paste0(folder_for_res, "gedo_obj.rds"))
 }
 gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
+```
+
+```{r gedo noized}
+
+if(file.exists(paste0(folder_for_res, "noized_gedo_obj.rds"))){
+  noized_gedo_obj = readRDS(paste0(folder_for_res, "noized_gedo_obj.rds"))
+}else{
+noized_gedo_obj = gedo(data = rna_seq_data_noized, diag = diag, reference_group = "Control",
+            category = "C7",subcategory = "IMMUNESIGDB",k_lof = 30,
+            core_pct = 0.9, k_graph = 15, dim_reduc_method="none", num_cores=num_cores,
+            distance="euclidean")
+
+saveRDS(noized_gedo_obj, file=paste0(folder_for_res, "noized_gedo_obj.rds"))
+}
+noized_gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
+
+
 ```
 
 ## 3.2. Graph G with correlation distances
@@ -94,6 +187,21 @@ saveRDS(gedo_corr_obj, file=paste0(folder_for_res, "gedo_corr_obj.rds"))
 }
 gedo_corr_obj$diag=factor(diag,levels=c("SjD","Control"))
 
+```
+
+```{r gedo corr noized}
+
+if(file.exists(paste0(folder_for_res, "noized_gedo_corr_obj.rds"))){
+  noized_gedo_corr_obj = readRDS(paste0(folder_for_res, "noized_gedo_corr_obj.rds"))
+}else{
+noized_gedo_corr_obj = gedo(data = rna_seq_data_noized, diag = diag, reference_group = "Control",
+            category = "C7",subcategory = "IMMUNESIGDB",k_lof = 30,
+            core_pct = 0.9, k_graph = 15, dim_reduc_method="none", num_cores=num_cores,
+            distance="correlation")
+
+saveRDS(noized_gedo_corr_obj, file=paste0(folder_for_res, "noized_gedo_corr_obj.rds"))
+}
+noized_gedo_corr_obj$diag=factor(diag,levels=c("SjD","Control"))
 ```
 
 # 4. Computing UMAP - GEDO
@@ -114,50 +222,21 @@ saveRDS(umap_gedo_obj, file=paste0(folder_for_res, "umap_gedo_obj.rds"))
 umap_gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
 ```
 
-# 5. GEDO functions
+```{r umap gedo noized}
 
-## Heatmap of GEDO module matrix :
+if(file.exists(paste0(folder_for_res, "noized_umap_gedo_obj.rds"))){
+  noized_umap_gedo_obj = readRDS(paste0(folder_for_res, "noized_umap_gedo_obj.rds"))
+}else{
+noized_umap_gedo_obj = gedo(data = rna_seq_data_noized, diag = diag, reference_group = "Control",
+            category = "C7",subcategory = "IMMUNESIGDB",k_lof = 30,
+            core_pct = 0.9, k_graph = 15, dim_reduc_method="umap", ncomp = 10,
+            dim_reduc_dist_method = "correlation", num_cores=num_cores,
+            distance="euclidean")
 
-```{r heatmaps GEDO}
-
-heatmap_pdf_width=8.5
-heatmap_pdf_height=8.5
-heatmap_png_width=615
-heatmap_png_height=615
-
-pointsize=10
-
-
-png(paste0(folder_for_res, "heatmap_gedo.png"), width = heatmap_png_width, height = heatmap_png_height, pointsize=pointsize)
-print(heatmap.ifn(gedo_obj = gedo_obj, IFN_score=ifn_score))
-dev.off()
-
+saveRDS(noized_umap_gedo_obj, file=paste0(folder_for_res, "noized_umap_gedo_obj.rds"))
+}
+noized_umap_gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
 ```
-
-IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
-
-## Heatmap of GEDOcorr module matrix :
-
-```{r heatmaps GEDO corr}
-
-png(paste0(folder_for_res, "heatmap_gedo_corr.png")) 
-print(heatmap.ifn(gedo_obj = gedo_corr_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize) 
-dev.off() 
-```
-
-IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
-
-## Heatmap of UMAP-GEDO module matrix :
-
-```{r heatmap umap gedo}
-
-png(paste0(folder_for_res, "heatmap_umap_gedo.png"))
-print(heatmap.ifn(gedo_obj = umap_gedo_obj, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
-
-```
-
-IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
 
 ## AUC of gene modules in GEDO module matrix :
 
@@ -166,6 +245,7 @@ IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha 
 #| fig.height: 6
 #| fig.align: "center"
 auc = gedo.module.auc(gedo_obj)
+saveRDS(auc, file=paste0(folder_for_res, "auc_modules.rds"))
 ggsave(auc$plot_auc, file=paste0(folder_for_res, "auc_gedo.pdf"), width = 15)
 
 ```
@@ -177,9 +257,9 @@ ggsave(auc$plot_auc, file=paste0(folder_for_res, "auc_gedo.pdf"), width = 15)
 #| fig.height: 10
 #| fig.align: "center"
 module_name="GSE1740_UNSTIM_VS_IFNA_STIMULATED_MCSF_DERIVED_MACROPHAGE_DN"
-plots_module = compute_transition_score(data = rna_seq_data, 
+plots_module = compute_transition_score(data = rna_seq_data,
                                         module_name = module_name,
-                                        diag = diag, 
+                                        diag = diag,
                                         reference_group = "Control",
                                         charge_reactome_modules = T,
                                         k_lof = 30,
@@ -205,9 +285,9 @@ UMAP with uwot package in R, k=15, euclidean distances, colored by (A) Status (C
 #| fig.height: 10
 #| fig.align: "center"
 module_name="GSE1740_UNSTIM_VS_IFNA_STIMULATED_MCSF_DERIVED_MACROPHAGE_DN"
-plots_module_random = compute_transition_score(data = rna_seq_data, 
+plots_module_random = compute_transition_score(data = rna_seq_data,
                                         module_name = module_name,
-                                        diag = diag, 
+                                        diag = diag,
                                         reference_group = "Control",
                                         k_lof = 35,
                                         core_pct = 0.8,
@@ -245,6 +325,22 @@ saveRDS(pca1_module_matrix, file=paste0(folder_for_res, "pca1_obj.rds"))
 
 ```
 
+```{r pca1 noized}
+
+if(file.exists(paste0(folder_for_res, "noized_pca1_obj.rds"))){
+noized_pca1_module_matrix = readRDS(paste0(folder_for_res, "noized_pca1_obj.rds"))
+}else{
+noized_pca1_module_matrix = compute_module_matrix(method="pca1", data=rna_seq_data_noized, 
+                                           diag=diag, 
+                                           reference_group="Control",
+                                           category="C7",
+                                           subcategory = "IMMUNESIGDB",
+                                           num_cores=num_cores)
+
+saveRDS(noized_pca1_module_matrix, file=paste0(folder_for_res, "noized_pca1_obj.rds"))
+}
+```
+
 # 8. Computing module matrix with mean of z-scores
 
 ```{r mean z score}
@@ -263,85 +359,762 @@ saveRDS(mean_z_score_module_matrix, file=paste0(folder_for_res,"mzscore_obj.rds"
 }
 ```
 
-# 9. Heatmaps of module matrices
+```{r mean z score noized}
 
-## With PCA1 :
+if(file.exists(paste0(folder_for_res, "noized_mzscore_obj.rds"))){
+  noized_mean_z_score_module_matrix=readRDS(paste0(folder_for_res, "noized_mzscore_obj.rds"))
+}else{
+noized_mean_z_score_module_matrix = compute_module_matrix(method="mean_z_score", data=rna_seq_data_noized, 
+                                           diag=diag, 
+                                           reference_group="Control",
+                                           category="C7",
+                                           subcategory = "IMMUNESIGDB",
+                                           num_cores=num_cores)
 
-```{r heatmaps pca1}
+saveRDS(noized_mean_z_score_module_matrix, file=paste0(folder_for_res,"noized_mzscore_obj.rds"))
+}
+```
 
-png(paste0(folder_for_res, "heatmap_PCA1.png"))
-print(heatmap.ifn(gedo_obj = pca1_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
+# 8. Computing module matrix with ssGSEA
+
+```{r compute ssGSEA}
+
+expr_mat <- t(as.matrix(rna_seq_data))
+expr_mat_noized <- t(as.matrix(rna_seq_data_noized))
+
+immun_c7=data.table(msigdbr(species = "Homo sapiens", collection = "C7", subcollection = "IMMUNESIGDB"))
+geneSets <- split(immun_c7$ensembl_gene, f = immun_c7$gs_name)
+
+#Filter of gene sets with genes present in the data
+geneSets_filtered <- lapply(geneSets, intersect, rownames(expr_mat))
+
+
+if(file.exists(paste0(folder_for_res, "ssgsea_obj.rds"))){
+  ssgsea_obj=readRDS(paste0(folder_for_res, "ssgsea_obj.rds"))
+}else{
+param_ssgsea <- ssgseaParam(
+  exprData    = expr_mat,
+  geneSets    = geneSets_filtered,
+  minSize     = 3,
+  normalize=T
+)
+
+scores_ssgsea  <- gsva(param_ssgsea, BPPARAM=MulticoreParam(workers = num_cores,progressbar = T))
+scores_ssgsea=data.table(t(scores_ssgsea))
+scores_ssgsea[, (names(scores_ssgsea)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))]
+
+
+ssgsea_obj=list(
+    module_matrix = scores_ssgsea,
+    config=list(param_ssgsea=param_ssgsea, reference_group="Control"),
+    diag=as.factor(diag)
+  )
+
+saveRDS(ssgsea_obj, file = paste0(folder_for_res, "ssgsea_obj.rds"))
+}
+
 
 ```
 
-IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
+```{r compute ssGSEA noized}
 
-## With Mean of Z-scores :
 
-```{r heatmap of meanzscore}
-#MEAN z SCORE
+if(file.exists(paste0(folder_for_res, "noized_ssgsea_obj.rds"))){
+  noized_ssgsea_obj=readRDS(paste0(folder_for_res, "noized_ssgsea_obj.rds"))
+}else{
 
-png(paste0(folder_for_res, "heatmap_mean_z_score.png"))
-print(heatmap.ifn(gedo_obj = mean_z_score_module_matrix, IFN_score=ifn_score), width = heatmap_pdf_width, height = heatmap_pdf_height, pointsize=pointsize)
-dev.off()
+#Paramétrage ssGSEA
+param_ssgsea <- ssgseaParam(
+  exprData    = expr_mat_noized,
+  geneSets    = geneSets_filtered,
+  minSize     = 3,
+  normalize=T
+)
+
+scores_ssgsea  <- gsva(param_ssgsea, BPPARAM=MulticoreParam(workers = num_cores,progressbar = T))
+scores_ssgsea=data.table(t(scores_ssgsea))
+scores_ssgsea[, (names(scores_ssgsea)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))]
+
+
+noized_ssgsea_obj=list(
+    module_matrix = scores_ssgsea,
+    config=list(param_ssgsea=param_ssgsea, reference_group="Control"),
+    diag=as.factor(diag)
+  )
+
+saveRDS(noized_ssgsea_obj, file = paste0(folder_for_res, "noized_ssgsea_obj.rds"))
+}
 ```
 
-IFN score : Z-score of genes PRKR, IFIT1 and IFI44 expression (interferon alpha induced genes)
+# 8. Computing module matrix with GSVA
 
-# 10. Class prediction performance (SjD vs. CTRL) for each gene module
+```{r compute GSVA}
+
+if(file.exists(paste0(folder_for_res, "gsva_obj.rds"))){
+  gsva_obj=readRDS(paste0(folder_for_res, "gsva_obj.rds"))
+}else{
+
+param_gsva <- gsvaParam(
+  exprData               = expr_mat,             
+  geneSets               = geneSets_filtered,    
+  minSize                = 3,                   
+  kcdf                   = "Gaussian",           
+  tau                     = 1,                    
+  maxDiff                = TRUE,                 
+  absRanking             = FALSE
+)
+
+scores_gsva  <- gsva(param_gsva, BPPARAM=MulticoreParam(workers = num_cores,progressbar = T))
+
+scores_gsva=data.table(t(scores_gsva))
+scores_gsva[, (names(scores_gsva)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))]
+
+gsva_obj=list(
+    module_matrix = scores_gsva,
+    config=list(param_gsva=param_gsva, reference_group="Control"),
+    diag=as.factor(diag)
+  )
+
+saveRDS(gsva_obj, file = paste0(folder_for_res, "gsva_obj.rds"))
+}
+
+```
+
+```{r compute GSVA noized}
+
+if(file.exists(paste0(folder_for_res, "noized_gsva_obj.rds"))){
+  noized_gsva_obj=readRDS(paste0(folder_for_res, "noized_gsva_obj.rds"))
+}else{
+
+
+param_gsva <- gsvaParam(
+  exprData               = expr_mat_noized,             
+  geneSets               = geneSets_filtered,    
+  minSize                = 3,                   
+  kcdf                   = "Gaussian",           
+  tau                     = 1,                    
+  maxDiff                = TRUE,                 
+  absRanking             = FALSE
+)
+
+scores_gsva  <- gsva(param_gsva, BPPARAM=MulticoreParam(workers = num_cores,progressbar = T))
+
+scores_gsva=data.table(t(scores_gsva))
+scores_gsva[, (names(scores_gsva)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE)))]
+
+noized_gsva_obj=list(
+    module_matrix = scores_gsva,
+    config=list(param_gsva=param_gsva, reference_group="Control"),
+    diag=as.factor(diag)
+  )
+
+saveRDS(noized_gsva_obj, file = paste0(folder_for_res, "noized_gsva_obj.rds"))
+}
+
+# rm(rna_seq_data)
+rm(rna_seq_data_noized)
+
+```
+
+# 
+
+# 9. Class prediction performance (SjD vs. CTRL) for each gene module
+
+```{r set up matrix_list}
+
+matrix_list = list(GEDO=gedo_obj,
+                   GEDO_noized=noized_gedo_obj,
+                   GEDOcorr = gedo_corr_obj,
+                   GEDOcorr_noized = noized_gedo_corr_obj,
+                   UMAP_GEDO=umap_gedo_obj,
+                   UMAP_GEDO_noized=noized_umap_gedo_obj,
+                   PCA1=pca1_module_matrix,
+                   PCA1_noized=noized_pca1_module_matrix,
+                   MEAN_Z_SCORES=mean_z_score_module_matrix,
+                   MEAN_Z_SCORES_noized=noized_mean_z_score_module_matrix,
+                   ssGSEA = ssgsea_obj,
+                   ssGSEA_noized = noized_ssgsea_obj,
+                   GSVA = gsva_obj,
+                   GSVA_noized = noized_gsva_obj)
+
+matrix_list_without_noize = list(GEDO=gedo_obj,
+                                 GEDOcorr = gedo_corr_obj,
+                                 UMAP_GEDO=umap_gedo_obj,
+                                 PCA1=pca1_module_matrix,
+                                 MEAN_Z_SCORES=mean_z_score_module_matrix,
+                                 ssGSEA = ssgsea_obj,
+                                 GSVA = gsva_obj)
+
+saveRDS(matrix_list, file = paste0(folder_for_res, "matrix_list.rds"))
+saveRDS(matrix_list_without_noize, file = paste0(folder_for_res, "matrix_list_without_noize.rds"))
+
+rm(gedo_obj)
+rm(gedo_corr_obj)
+rm(umap_gedo_obj)
+rm(pca1_module_matrix)
+rm(mean_z_score_module_matrix)
+rm(ssgsea_obj)
+rm(gsva_obj)
+
+
+```
 
 ```{r auc of each module comparison}
-#| fig.width: 15 
+
+#| fig.width: 15
 #| fig.height: 7
-#| fig.align: "center" 
+#| fig.align: "center"
 
-matrix_list = list(GEDO=gedo_obj, GEDOcorr = gedo_corr_obj, UMAP_GEDO=umap_gedo_obj,PCA1=pca1_module_matrix, MEAN_Z_SCORES=mean_z_score_module_matrix)
 
+if(file.exists(file=paste0(folder_for_res, "module_auc_comparison.rds"))){
+  res=readRDS(file=paste0(folder_for_res, "module_auc_comparison.rds"))
+}else{
 res=compute_auc_modules(matrix_list = matrix_list)
-plot=res$plot
-print(plot)
-
-ggsave(plot,file=paste0(folder_for_res,"module_auc_comparison.pdf"), height = 7, width = 15)
 saveRDS(res, file=paste0(folder_for_res, "module_auc_comparison.rds"))
+}
+
+library(forcats)
+
+res$dt_auc_results=res$dt_auc_results[metric %in% names(matrix_list_without_noize)]
+res$dt_auc_results[, metric := fct_reorder(metric, -median_auc, .desc = TRUE)]
+res$dt_auc_results[, metric:=factor(metric, levels=unique(res$dt_auc_results$metric))]
+
+
+levels_metric   <- levels(res$dt_auc_results$metric)
+best            <- levels_metric[1]
+others          <- levels_metric[-1]
+comparisons_list <- lapply(others, function(x) c(best, x))
+
+
+plot_boxplot_auc <- ggplot(res$dt_auc_results,
+                           aes(x = metric, y = auc, color = is_gedo)) +
+  geom_boxplot(width = 0.6) +     
+   geom_jitter(width = 0.2, alpha = 0.05, size = 1.5) +    
+  scale_color_manual(values = c("TRUE" = "firebrick", "FALSE" = "black")) +
+  stat_compare_means(
+    comparisons = comparisons_list,
+    method      = "wilcox.test",
+    label       = "p.signif",
+    hide.ns     = TRUE
+  ) +
+  scale_x_discrete(limits = rev(levels(res$dt_auc_results$metric))) +
+  coord_flip() +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    axis.text.y      = element_text(face = "bold"),
+    plot.title = element_text(face="bold")
+  ) +
+  labs(
+    x = "Module Scoring Method",
+    y = "AUC"
+  )
+
+saveRDS(object = as_grob(plot_boxplot_auc), file=paste0(folder_for_res,"a.rds"))
+
+
+plot_list=list()
+  for(m in others){
+    plot=ggplot(res$auc_wide, aes(x = .data[[m]], y = .data[[best]], label = pathway)) +
+      geom_point(size = 1, color = "black", alpha=0.3) +  # Points pour chaque pathway
+      theme_minimal() +
+      theme(plot.title = element_text(face="bold"))+
+      geom_abline(slope = 1, intercept = 0, color = "red", size = 1)+
+      geom_quantile(quantiles = 0.5, method = "rqss", lambda = 0.1, color = "blue", size = 1)+  
+      xlim(c(0.5,1))+
+      ylim(c(0.5,1))+
+      coord_fixed()+
+      labs(
+        x = paste0("AUC (",m,")"),
+        y = paste0("AUC (", best, ")"))
+      
+    plot_list=list.append(plot_list, plot) 
+  }
+  
+  plot_auc_module_comp_reg <- Reduce(`+`, plot_list) + plot_layout(ncol = length(others)/2)
+  
+  b_gtable <- patchworkGrob(plot_auc_module_comp_reg)
+
+  saveRDS(object = b_gtable, file=paste0(folder_for_res,"b.rds"))
+
+print(plot_boxplot_auc)
+print(plot_auc_module_comp_reg)
 ```
 
 AUC analysis of each gene module to classify SjD vs. CTRL.
 
-\(A\) AUC of ImmuneSigDB 4872 gene modules with GEDO, UMAP-GEDO, PCA1 and Mean of z-scores (significance by Wilcoxon test),
+AUC of ImmuneSigDB 4872 gene modules with GEDO, UMAP-GEDO, PCA1 and Mean of z-scores (significance by Wilcoxon test),
 
-\(B\) AUC of gene modules in comparison with GEDO. Red line: x=y line. Blue curve: quantile regression at the median (quantreg package in R, lambda=0.1).
+AUC of gene modules in comparison with GEDO. Red line: x=y line. Blue curve: quantile regression at the median (quantreg package in R, lambda=0.1).
 
-# 11. Module Matrices classification performance (SjD vs. CTRL)
+```{r compare diff auc each module}
+
+if(file.exists(file=paste0(folder_for_res, "module_auc_comparison.rds"))){
+  res=readRDS(file=paste0(folder_for_res, "module_auc_comparison.rds"))
+}else{
+res=compute_auc_modules(matrix_list = matrix_list)
+saveRDS(res, file=paste0(folder_for_res, "module_auc_comparison.rds"))
+}
+
+dt <- res$auc_wide
+
+noized_cols <- grep("_noized$", names(dt), value = TRUE)
+orig_cols   <- sub("_noized$",    "",   noized_cols)
+methods     <- orig_cols  # vecteur des noms de méthodes
+
+dt_long <- melt(
+  dt,
+  measure.vars   = list(orig_cols, noized_cols),   
+  value.name     = c("orig", "noized"),            
+  variable.name  = "method_idx"
+)
+dt_long[, method := methods[method_idx]]
+dt_long[, method_idx := NULL]
+dt_long[, diff := noized - orig]
+
+dt_plot <- melt(
+  dt_long,
+  id.vars       = c("pathway", "method"),
+  measure.vars  = c("orig", "noized", "diff"),
+  variable.name = "setting",
+  value.name    = "auc"
+)
+dt_plot[, setting := factor(
+  setting,
+  levels = c("orig", "noized", "diff"),
+  labels = c("Without bias", "With bias", "Difference")
+)]
+
+dt_plot[, method := factor(
+  method,
+  levels = c("GEDO", "GEDOcorr", "UMAP_GEDO", "PCA1", 
+             "MEAN_Z_SCORES", "ssGSEA", "GSVA")
+)]
+
+
+plot_boxplot_auc_noized <- ggplot(dt_plot, aes(x = method, y = auc, fill = setting)) +
+  geom_boxplot(position = position_dodge(0.8)) +
+  scale_fill_manual(values = c(
+    "Without bias" = "#404788FF",
+    "With bias"    = "#238A8DFF",
+    "Difference"   = "#FDE725FF"
+  )) +
+  theme_minimal()+
+  labs(
+    x    = "Module Scoring Method",
+    y    = "AUC",
+    fill = "Bias setting"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title=element_text(face="bold"))
+
+saveRDS(object = as_grob(plot_boxplot_auc_noized), file=paste0(folder_for_res,"g.rds"))
+
+
+print(plot_boxplot_auc_noized)
+
+
+
+
+```
+
+# 10. Module Matrices classification performance (SjD vs. CTRL)
 
 ```{r rf and knn}
+
 #| fig.width: 15
 #| fig.height: 15
-#| fig.align: "center"   
+#| fig.align: "center"
+
 
 if(file.exists(paste0(folder_for_res,"rf_results.rds"))){
   rf_results=readRDS(paste0(folder_for_res,"rf_results.rds"))
-  }else{
-    rf_results = compute_prediction_with_ci(model = "rf", k=NULL, k_folds = 10, dt_lis=matrix_list, num_cores=num_cores)
-    saveRDS(rf_results, file=paste0(folder_for_res, "rf_results.rds"))
-  }
-    
+}else{
+rf_results = compute_prediction_with_ci(model = "rf", k=NULL, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
+saveRDS(rf_results, file=paste0(folder_for_res, "rf_results.rds"))  
+}
+
 if(file.exists(paste0(folder_for_res,"knn_results.rds"))){
   knn_results=readRDS(paste0(folder_for_res,"knn_results.rds"))
-  }else{
-    knn_results = compute_prediction_with_ci(model = "knn", k=30, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
-    saveRDS(knn_results, file=paste0(folder_for_res, "knn_results.rds"))
-    } 
-roc_combined <- rf_results$roc_curves + knn_results$roc_curves + plot_layout(ncol = 2)
-print(roc_combined)
-ggsave(roc_combined,file=paste0(folder_for_res,"rocs_rf_knn.pdf"), width = 15, height = 15)   
+}else{
+knn_results = compute_prediction_with_ci(model = "knn", k=30, k_folds = 10, dt_list=matrix_list, num_cores=num_cores)
+saveRDS(knn_results, file=paste0(folder_for_res, "knn_results.rds"))  
+}
+
+#---------------RF
+
+roc_curves=rf_results$roc_curves_obj[names(matrix_list_without_noize)]
+roc_data <- do.call(rbind, mclapply(names(roc_curves), function(dt_name) {
+    data.frame(
+      inv_specificity = 1 - roc_curves[[dt_name]]$specificities,
+      sensibility = roc_curves[[dt_name]]$sensitivities,
+      Dataset = dt_name
+    )
+  }, mc.cores = num_cores))
+  
+  roc_data <- data.table(roc_data)
+  desired_order <- names(matrix_list_without_noize)
+  roc_data[, Dataset := factor(Dataset, levels = desired_order)]
+
+plot_rf = ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
+      geom_line(size = 0.5) +
+      labs(x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
+      theme_minimal()
+
+      
+
+saveRDS(object = as_grob(plot_rf), file=paste0(folder_for_res,"c.rds"))
+
+
+
+#------------------KNN 
+roc_curves=knn_results$roc_curves_obj[names(matrix_list_without_noize)]
+roc_data <- do.call(rbind, mclapply(names(roc_curves), function(dt_name) {
+    data.frame(
+      inv_specificity = 1 - roc_curves[[dt_name]]$specificities,
+      sensibility = roc_curves[[dt_name]]$sensitivities,
+      Dataset = dt_name
+    )
+  }, mc.cores = num_cores))
+  
+  roc_data <- data.table(roc_data)
+  desired_order <- names(matrix_list_without_noize)
+  roc_data[, Dataset := factor(Dataset, levels = desired_order)]
+
+  plot_knn = ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
+      geom_line(size = 0.5) +
+      labs(x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
+      theme_minimal()
+  saveRDS(object = as_grob(plot_knn), file=paste0(folder_for_res,"d.rds"))
+
+
+print(plot_rf)
+print(plot_knn)
+
 ```
 
 ROC curves of modules matrices to classify SjD vs. CTRL.
 
-\(C\) Prediction with Random Forest (randomForest package in R, with 400 trees and default parameters),
+Prediction with Random Forest (randomForest package in R, with 400 trees and default parameters),
 
-\(D\) Prediction with K-Nearest Neighbor algorithm (caret R package, with k=30)
+Prediction with K-Nearest Neighbor algorithm (caret R package, with k=30)
+
+```{r roc curves noize proc test}
+
+
+names(rf_results$roc_curves_obj)  <- names(matrix_list)
+names(knn_results$roc_curves_obj) <- names(matrix_list)
+methods <- names(matrix_list_without_noize)
+
+get_stars <- function(p) {
+  if      (p < 0.001) "***"
+  else if (p < 0.01 ) "**"
+  else if (p < 0.05 ) "*"
+  else                "ns"
+}
+
+#Delong's test : 
+calc_res_table <- function(results_obj, model_name) {
+  do.call(rbind, lapply(methods, function(m) {
+    roc1 <- results_obj$roc_curves_obj[[ m ]]
+    roc2 <- results_obj$roc_curves_obj[[ paste0(m, "_noized") ]]
+    tst  <- roc.test(roc1, roc2)
+    data.frame(
+      model   = model_name,
+      Method  = m,
+      p.value = tst$p.value,
+      Signif  = get_stars(tst$p.value),
+      stringsAsFactors = FALSE
+    )
+  }))
+}
+
+res_table_rf  <- calc_res_table(rf_results,  "RF")
+res_table_knn <- calc_res_table(knn_results, "KNN")
+res_table_all <- bind_rows(res_table_rf, res_table_knn)
+res_table_all %>% mutate(p.value = signif(p.value, 3))
+
+long <- rbindlist(
+  list(RF  = rf_results$auc_results,
+       KNN = knn_results$auc_results),
+  idcol = "model"
+)[, `:=`(
+    base   = sub("_noized$", "", methods),
+    noized = grepl("_noized$", methods),
+    model  = toupper(model)
+)][, {
+    o <- .SD[!noized]
+    n <- .SD[ noized]
+    data.table(
+      model,
+      base,
+      metric = factor(c("Orig","Noized","Diff"),
+                      levels = c("Orig","Noized","Diff")),
+      AUC   = c(o$AUC,     n$AUC,       o$AUC - n$AUC),
+      lower = c(o$CI_lower, n$CI_lower,  o$CI_lower - n$CI_upper),
+      upper = c(o$CI_upper, n$CI_upper,  o$CI_upper - n$CI_lower)
+    )
+}, by = .(model, base)
+][, `:=`(
+    AUC   = ifelse(metric=="Diff", -AUC, AUC),
+    lower = ifelse(metric=="Diff",  0, lower),
+    upper = ifelse(metric=="Diff",  0, upper)
+)][, `:=`(
+    base  = factor(base,  levels = methods),
+    model = factor(model, levels = c("RF","KNN"))
+)]
+long <- unique(long)
+long[, model:=NULL]
+long[, base:=NULL]
+long[,base:=factor(base, levels=names(matrix_list_without_noize))]
+long[,model:=factor(model, levels=c("RF","KNN"))]
+
+stars_df <- res_table_all %>%
+  rename(base = Method) %>%
+  left_join(
+    long %>%
+      filter(metric=="Noized") %>%
+      group_by(model, base) %>%
+      summarize(y = 1, .groups="drop"),
+    by = c("model", "base")
+  )
+
+
+long[, metric := factor(
+  metric,
+  levels = c("Orig", "Noized", "Diff"),
+  labels = c("Without bias", "With bias", "Difference")
+)]
+
+
+plot_auc_rf_knn_noize <- ggplot(long, aes(x = base, y = AUC, fill = metric)) +
+  geom_col(aes(group = metric),
+           position = position_dodge(0.8), width = 0.7) +
+    geom_errorbar(
+    aes(
+      ymin = ifelse(metric=="Difference", NA, lower),
+      ymax = ifelse(metric=="Difference", NA, upper),
+      group = metric
+    ),
+    position = position_dodge(0.8),
+    width    = 0.2
+  ) +
+  scale_fill_manual(values = c("Without bias"="#404788FF","With bias"="#238A8DFF","Difference"="#FDE725FF"))+
+  # ici on corrige
+  geom_text(
+  data        = stars_df,
+  aes(x = base, y = 1-0.01, label = Signif),  # <- y fixe à 1
+  inherit.aes = FALSE,
+  vjust       = -0.5,
+  hjust       = 0.5
+) +
+  scale_y_break(c(0, 0.88), expand = FALSE) +
+  facet_wrap(~ factor(model, levels=c("RF","KNN")), nrow = 1) +
+  labs(
+    x    = "Module Scoring Method",
+    y    = "AUC",
+    fill = "Bias setting"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_y_continuous(limits = c(min(long$AUC), 1.0))+
+  theme(
+    axis.text.y.right  = element_blank(),
+    axis.ticks.y.right = element_blank(),
+    axis.title.y.right = element_blank(),
+    axis.line.x = element_blank(),legend.axis.line = element_blank(),
+    axis.line.y=element_blank()
+  )
+
+
+
+h_grob <- grid.grabExpr(print(plot_auc_rf_knn_noize))
+saveRDS(object = h_grob, file=paste0(folder_for_res,"h.rds"))
+
+print(plot_auc_rf_knn_noize)
+
+
+```
+
+# 11. Heatmaps of module matrices
+
+## Combined Heatmaps :
+
+```{r running heatmaps}
+
+
+if(file.exists(file.path(folder_for_res, "gt_a.rds"))==F){
+
+heatmap_pdf_width=8.5
+heatmap_pdf_height=8.5
+heatmap_png_width=615
+heatmap_png_height=615
+pointsize=10 
+
+fontsize_title <- 20
+fontface_title <- "bold"
+
+cat("a")
+  ph_a = heatmap.ifn(gedo_obj = matrix_list$GEDO,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+gt_a = as_grob(ph_a$gtable)
+saveRDS(gt_a, file = paste0(folder_for_res,"gt_a.rds"))
+
+cat("b")
+ph_b = heatmap.ifn(gedo_obj = matrix_list$GEDOcorr,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+gt_b = as_grob(ph_b$gtable)
+saveRDS(gt_b, file = paste0(folder_for_res,"gt_b.rds"))
+
+
+cat("c")
+ph_c = heatmap.ifn(gedo_obj = matrix_list$UMAP_GEDO,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+  gt_c = as_grob(ph_c$gtable)
+  saveRDS(gt_c, file = paste0(folder_for_res,"gt_c.rds"))
+
+  
+cat("d")
+ph_d = heatmap.ifn(gedo_obj = matrix_list$PCA1,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+  gt_d = as_grob(ph_d$gtable)
+  saveRDS(gt_d, file = paste0(folder_for_res,"gt_d.rds"))
+
+
+cat("e")
+  ph_e = heatmap.ifn(gedo_obj = matrix_list$MEAN_Z_SCORES,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+  gt_e = as_grob(ph_e$gtable)
+  saveRDS(gt_e, file = paste0(folder_for_res,"gt_e.rds"))
+
+
+cat("f")
+  ph_f = heatmap.ifn(gedo_obj = matrix_list$ssGSEA,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+  gt_f = as_grob(ph_f$gtable)
+  saveRDS(gt_f, file = paste0(folder_for_res,"gt_f.rds"))
+
+  
+  cat("g")
+  ph_g = heatmap.ifn(gedo_obj = matrix_list$GSVA,
+                     IFN_score=ifn_score,
+                     title="",
+                     legend=T,
+                     annotation_legend =T)
+  gt_g = as_grob(ph_g$gtable)
+  saveRDS(gt_g, file = paste0(folder_for_res,"gt_g.rds"))
+
+  }
+
+
+
+```
+
+```{r combining heatmaps}
+
+
+
+gt_a <- readRDS(paste0(folder_for_res, "gt_a.rds"))
+gt_b <- readRDS(paste0(folder_for_res, "gt_b.rds"))
+gt_c <- readRDS(paste0(folder_for_res, "gt_c.rds"))
+gt_d <- readRDS(paste0(folder_for_res, "gt_d.rds"))
+gt_e <- readRDS(paste0(folder_for_res, "gt_e.rds"))
+gt_f <- readRDS(paste0(folder_for_res, "gt_f.rds"))
+gt_g <- readRDS(paste0(folder_for_res, "gt_g.rds"))
+
+
+theme_set(
+  theme_cowplot() +
+  theme(
+    panel.background = element_rect(fill = "white", colour = NA),
+    plot.background  = element_rect(fill = "white", colour = NA)
+  )
+)
+
+
+row1 <- plot_grid(
+  gt_a, gt_b, gt_c,
+  ncol           = 3,
+  labels         = c("a","b","c"),
+  label_size     = 20,
+  label_fontface = "bold"
+)
+
+
+middle2 <- plot_grid(
+  gt_d, gt_e,
+  ncol           = 2,
+  labels         = c("d","e"),
+  label_size     = 20,
+  label_fontface = "bold"
+)
+row2 <- plot_grid(
+  plot_spacer(), middle2, plot_spacer(),
+  ncol       = 3,
+  rel_widths = c(0.5,2,0.5)
+)
+
+
+middle3 <- plot_grid(
+  gt_f, gt_g,
+  ncol           = 2,
+  labels         = c("f","g"),
+  label_size     = 20,
+  label_fontface = "bold"
+)
+row3 <- plot_grid(
+  plot_spacer(), middle3, plot_spacer(),
+  ncol       = 3,
+  rel_widths = c(0.5,2,0.5)
+)
+
+
+comb <- plot_grid(
+  row1, row2, row3,
+  ncol        = 1,
+  rel_heights = c(1,1,1)
+)
+
+comb <- ggdraw(comb) +
+  theme(
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
+
+ggsave(
+  filename = file.path(folder_for_res, "combined_heatmaps.png"),
+  plot     = comb,
+  width    = 20,
+  height   = 20,
+  units    = "in",
+  dpi=350
+)
+
+
+# print(comb)
+
+
+
+```
 
 # 12. Clustering quality evaluation
 
@@ -358,27 +1131,79 @@ saveRDS(cl_res, file=paste0(folder_for_res,"clustering_quality.rds"))
 }
 
 clustering_plot=cl_res$plot
-print(clustering_plot)
+clustering_plot=clustering_plot+
+  theme(plot.title = element_text(face="bold"))+
+  labs(title="")
 
-ggsave(clustering_plot,file=paste0(folder_for_res,"module_auc_rocs_rf_knn_clustering.pdf" ), width = 15, height = 16)
+saveRDS(object = as_grob(clustering_plot), file=paste0(folder_for_res,"e.rds"))
+
+print(clustering_plot)
 ```
 
-\(E\) Clustering quality with Average Silhouette Width (ASW) and Calinski-Harabasz Index (CHI). Dotted lines represent the mean value of each clustering metric across the number of clusters, computed within each method.
+Clustering quality with Average Silhouette Width (ASW) and Calinski-Harabasz Index (CHI).
+
+Dotted lines represent the mean value of each clustering metric across the number of clusters, computed within each method.
+
+# 12. Combined figures
+
+```{r combine res figures}
+
+a_g <- readRDS(file.path(folder_for_res, "a.rds"))
+b_g <- readRDS(file.path(folder_for_res, "b.rds"))
+c_g <- readRDS(file.path(folder_for_res, "c.rds"))
+d_g <- readRDS(file.path(folder_for_res, "d.rds"))
+e_g <- readRDS(file.path(folder_for_res, "e.rds"))
+f_g <- readRDS(file.path(folder_for_res, "f.rds"))
+g_g <- readRDS(file.path(folder_for_res, "g.rds"))
+h_g <- readRDS(file.path(folder_for_res, "h.rds"))
+
+a_w <- wrap_elements(full = a_g)
+b_w <- wrap_elements(full = b_g)
+c_w <- wrap_elements(full = c_g)
+d_w <- wrap_elements(full = d_g)
+e_w <- wrap_elements(full = e_g)
+f_w <- wrap_elements(full = f_g)
+g_w <- wrap_elements(full = g_g)
+h_w <- wrap_elements(full = h_g)
+
+ab  <- a_w + b_w                + plot_layout(ncol = 2)
+cde <- c_w + d_w + e_w          + plot_layout(ncol = 3)
+fgh <- f_w + g_w + h_w          + plot_layout(ncol = 3, widths = c(0.2, 0.4,0.4))
+
+comb <- ab / cde / fgh +
+  plot_layout(nrow = 3, guides = "collect") +
+  plot_annotation(tag_levels = "a") &
+  theme(
+    plot.tag          = element_text(size = 20, face = "bold"),
+    plot.tag.position = c(0, 1)
+  )
+
+ggsave(
+  filename = file.path(folder_for_res, "combined_figure_results.pdf"),
+  plot     = comb,
+  device   = cairo_pdf,
+  width    = 30,   
+  height   = 20,
+  units    = "in"
+)
+
+print(comb)
+```
 
 # 13. Enrichment of clinical features in PHATE visualizations
 
 ## GEDO :
 
 ```{r phate gedo Mm}
-#| fig.width: 20
-#| fig.height: 10
-#| fig.align: "center"
 
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo)
-ggsave(plot_gedo,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
-# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"))
+ggsave(plot_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
+
 
 
 ```
@@ -388,15 +1213,15 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## GEDOcorr :
 
 ```{r phate_gedo_corr}
-#| fig.width: 20
-#| fig.height: 10
-#| fig.align: "center"
 
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_gedo_corr)
-ggsave(plot_gedo_corr,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
-# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"))
+ggsave(plot_gedo_corr$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
+
 
 ```
 
@@ -405,16 +1230,15 @@ PHATE projection of module matrix obtained with GEDOcorr with phateR R package (
 ## UMAP-GEDO :
 
 ```{r phate umap gedo}
-#| fig.width: 20
-#| fig.height: 10
+#| fig.width: 12
+#| fig.height: 6
 #| fig.align: "center"
-
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_umap_gedo)
-ggsave(plot_umap_gedo,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
-# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"))
+ggsave(plot_umap_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
+
 
 ```
 
@@ -423,52 +1247,86 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## PCA1 :
 
 ```{r phate pca 1}
-#| fig.width: 20
-#| fig.height: 10
-#| fig.align: "center"
 
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_pca1)
-ggsave(plot_pca1,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
-# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"))
+ggsave(plot_pca1$plot,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
+
 
 ```
 
-PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
+PHATE projection of module matrix obtained with PCA1 with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
 
 ## MEAN OF Z-SCORES :
 
 ```{r phate meanzscore}
-#| fig.width: 20
-#| fig.height: 10
-#| fig.align: "center"
 
+
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
 print(plot_mean_zscore)
-ggsave(plot_mean_zscore,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
-# knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"))
+ggsave(plot_mean_zscore$plot,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
+
 
 ```
 
-PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
+PHATE projection of module matrix obtained with MSZ with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
+
+## ssGSEA :
+
+```{r phate ssgsea}
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
+use_python("/usr/bin/python3", required = TRUE)
+plot_ssgsea= plot_phate(data=matrix_list$ssGSEA$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_ssgsea)
+ggsave(plot_ssgsea$plot,file=paste0(folder_for_res,"phate_clinical_features_ssgsea.pdf"), width = 20, height = 10)
+
+```
+
+PHATE projection of module matrix obtained with ssGSEA with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
+
+## GSVA :
+
+```{r phate gsva}
+#| fig.width: 12
+#| fig.height: 6
+#| fig.align: "center"
+use_python("/usr/bin/python3", required = TRUE)
+plot_gsva= plot_phate(data=matrix_list$GSVA$module_matrix, k = 15, meta_data = PS_brutes)
+print(plot_gsva)
+ggsave(plot_gsva$plot,file=paste0(folder_for_res,"phate_clinical_features_gsva.pdf"), width = 20, height = 10)
+
+```
+
+PHATE projection of module matrix obtained with GSVA with phateR R package (k=15, euclidean distances), colored by : (A) Status (CTRL vs. SjD), (B) IFN score, (C) Quantification of all SSA autoantibodies, (D) Quantification SSA 52 autoantibodies, (E) Quantification of SSA 60 autoantibodies, (F) Quantification of SSB autoantibodies.
 
 # 14. Benchmark methods (time of running)
 
 ```{r benchmark}
 
+
+expr_mat  <- t(as.matrix(rna_seq_data))
+
 if(file.exists(paste0(folder_for_res, "benchmark_time.rds"))){
   bench_result=readRDS(paste0(folder_for_res, "benchmark_time.rds"))
 }else{
 bench_result = bench::mark(
-  
+
 GEDO = gedo(data = rna_seq_data, diag = diag, reference_group = "Control",
             category = "C7",subcategory = "IMMUNESIGDB",k_lof = 30,
             core_pct = 0.9, k_graph = 15, dim_reduc_method="none", num_cores=num_cores,
             distance="euclidean"),
-  
+
 GEDOcorr = gedo(data = rna_seq_data, diag = diag, reference_group = "Control",
             category = "C7",subcategory = "IMMUNESIGDB",k_lof = 30,
             core_pct = 0.9, k_graph = 15, dim_reduc_method="none", num_cores=num_cores,
@@ -480,23 +1338,67 @@ UMAP_GEDO = gedo(data = rna_seq_data, diag = diag, reference_group = "Control",
             core_pct = 0.9, k_graph = 15, dim_reduc_method="umap", ncomp = 10,
             dim_reduc_dist_method = "correlation", num_cores=num_cores,
             distance="euclidean"),
-  
-PCA1 = compute_module_matrix(method="pca1", data=rna_seq_data, 
-  diag=diag, 
-  reference_group="Control",
-  category="C7",
-  subcategory = "IMMUNESIGDB",
-  num_cores=num_cores),
-  
 
-MEAN_Z_SCORES = compute_module_matrix(method="mean_z_score", 
-  data=rna_seq_data, 
-  diag=diag, 
+PCA1 = compute_module_matrix(method="pca1", data=rna_seq_data,
+  diag=diag,
   reference_group="Control",
   category="C7",
   subcategory = "IMMUNESIGDB",
   num_cores=num_cores),
+
+
+MEAN_Z_SCORES = compute_module_matrix(method="mean_z_score",
+  data=rna_seq_data,
+  diag=diag,
+  reference_group="Control",
+  category="C7",
+  subcategory = "IMMUNESIGDB",
+  num_cores=num_cores),
+
+ssGSEA = {
   
+  immun_c7           <- data.table(
+    msigdbr(species="Homo sapiens",
+            collection="C7",
+            subcollection="IMMUNESIGDB")
+  )
+  geneSets           <- split(immun_c7$ensembl_gene, immun_c7$gs_name)
+  geneSets_filtered  <- lapply(geneSets, intersect, rownames(expr_mat))
+  param_ssgsea       <- ssgseaParam(
+    exprData  = expr_mat,
+    geneSets  = geneSets_filtered,
+    minSize   = 3,
+    normalize = TRUE
+  )
+  
+  gsva(param_ssgsea,
+       BPPARAM = MulticoreParam(workers = num_cores,
+                                progressbar = TRUE))
+},
+
+GSVA = {
+  immun_c7           <- data.table(
+    msigdbr(species="Homo sapiens",
+            collection="C7",
+            subcollection="IMMUNESIGDB")
+  )
+  geneSets           <- split(immun_c7$ensembl_gene, immun_c7$gs_name)
+  geneSets_filtered  <- lapply(geneSets, intersect, rownames(expr_mat))
+  param_gsva         <- gsvaParam(
+    exprData    = expr_mat,
+    geneSets    = geneSets_filtered,
+    minSize     = 3,
+    kcdf        = "Gaussian",
+    tau         = 1,
+    maxDiff     = TRUE,
+    absRanking  = FALSE
+  )
+  
+  gsva(param_gsva,
+       BPPARAM = MulticoreParam(workers = num_cores,
+                                progressbar = TRUE))
+},
+
 iterations = 3,
 check = F
 )
@@ -516,22 +1418,26 @@ summary_stats <- data.table(results_long %>%
     sd_minutes = sd(minutes),
     se_minutes = sd_minutes / sqrt(n())
   ))
-summary_stats$expression = factor(names(matrix_list), levels = names(matrix_list))
+summary_stats$expression = factor(names(matrix_list_without_noize), levels = names(matrix_list_without_noize))
 
 
 plot = ggplot(summary_stats, aes(x = expression, y = median_minutes)) +
-  geom_bar(stat = "identity", fill = "white", color = "black", width = 0.6) + 
+  geom_bar(stat = "identity", fill = "white", color = "black", width = 0.6) +
   geom_errorbar(aes(ymin = median_minutes - se_minutes, ymax = median_minutes + se_minutes),width = 0.2, color = "black") +
+  scale_y_break(c(3, 50), expand = FALSE, space = 1) +
   labs(x = "Methods",
        y = "Time (minutes)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+ggsave(plot = plot,filename =paste0(folder_for_res, "benchmark_res.pdf"))
+
 print(plot)
-ggsave(plot,file=paste0(folder_for_res, "benchmark_res.pdf"))
 
 ```
 
-# 15. Session information, Packages and versions
+# 16. Session information, Packages and versions
 
 ```{r session info}
 
