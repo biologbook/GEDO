@@ -12,17 +12,19 @@ We introduce GEDO, a graph- and topology-based method that infers gene
 module activity through a transition score quantifying the shift from healthy
 controls to diseased individuals. When applied to bulk RNA-seq data from
 Sjögren’s disease patients and healthy controls (PRECISESADS cohort), GEDO
-was benchmarked against PCA1 and the Mean of z-scores in classification and
-unsupervised clustering tasks.
+was benchmarked against PCA1, Mean of z-scores, ssGSEA and GSVA in
+classification, unsupervised clustering tasks and robustness against noise and
+bias.
 
 GEDO outperformed both approaches in predicting disease status and yielded
-more informative module matrices, enhancing subgroup separability. The bio-
-logical signal captured was aligned with the knowledge and clinical features of
-Sjögren’s disease.
+more informative module matrices, enhances subgroup separability and
+robustness against noise and bias. The biological signal captured was
+aligned with the knowledge and clinical features of Sjögren’s disease.
 
 GEDO offers a robust, interpretable framework for quantifying gene modules
 activity, with applications in single- and multi-omics integration. Its topology-
 based design enables finer resolution of disease-related transcriptomic alterations.
+
 
 # 📂 Structure of the repository
 - docs/TUTORIAL.html : Quarto edited file which run analysis, show code execution, and show figures.
