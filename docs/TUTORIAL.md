@@ -129,7 +129,8 @@ num_cores=3
   #Standardisation between 0 and 1
   rna_seq_data_noized[, (names(rna_seq_data_noized)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE))), .SDcols = names(rna_seq_data_noized)]
   
-  
+   rm(dt_biased)
+   
   #Verification
   cat(sprintf("Bias applied on  %d genes × %d individuals\n",
               length(genes_idx), length(indiv_idx)))
@@ -138,8 +139,10 @@ num_cores=3
     Bias applied on  7500 genes × 323 individuals
 
 ``` r
-  rm(dt_biased)
+  print(plot_noized_data)
 ```
+
+![](../docs/figures/tutorial_noizy%20data-1.png)
 
 # 3. Computing GEDO
 
@@ -1062,6 +1065,10 @@ cat("f")
 ```
 
 ``` r
+#| fig.width: 20
+#| fig.height: 20
+#| fig.align: "center"
+
 gt_a <- readRDS(paste0(folder_for_res, "gt_a.rds"))
 gt_b <- readRDS(paste0(folder_for_res, "gt_b.rds"))
 gt_c <- readRDS(paste0(folder_for_res, "gt_c.rds"))
@@ -1128,6 +1135,8 @@ comb <- ggdraw(comb) +
     plot.background = element_rect(fill = "white", colour = NA)
   )
 
+# print(comb)
+
 ggsave(
   filename = file.path(folder_for_res, "combined_heatmaps.png"),
   plot     = comb,
@@ -1136,9 +1145,6 @@ ggsave(
   units    = "in",
   dpi=350
 )
-
-
-# print(comb)
 ```
 
 # 12. Clustering quality evaluation
@@ -1215,66 +1221,20 @@ ggsave(
 print(comb)
 ```
 
-![](../docs/figures/tutorial_combine%20res%20figures-1.png)
+<img src="../docs/figures/tutorial_combine%20res%20figures-1.png"
+data-fig-align="center" />
 
 # 13. Enrichment of clinical features in PHATE visualizations
 
 ## GEDO :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gedo)
+print(plot_gedo$plot)
 ```
 
-    $plot
-
 ![](../docs/figures/tutorial_phate%20gedo%20Mm-1.png)
-
-
-    $phate
-              PHATE1       PHATE2 SAMPLING_OMIC_NUMBER    diag
-               <num>        <num>               <char>  <fctr>
-      1: -0.04684483 -0.001044170            N32140213     SjD
-      2:  0.01864536  0.015710013            N32140214     SjD
-      3:  0.03215184 -0.018078939            N32140221 Control
-      4: -0.03200897  0.020331550            N32141637     SjD
-      5:  0.03095766 -0.023240714            N32141643 Control
-     ---                                                      
-    643: -0.03887003  0.014906819            N32170643     SjD
-    644: -0.04622605 -0.000602215            N32170644     SjD
-    645: -0.04484092  0.008148997            N32170665     SjD
-    646:  0.02954651  0.009258380            N32170675 Control
-    647:  0.01905679  0.020761907            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
 
 ``` r
 ggsave(plot_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
@@ -1289,59 +1249,12 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## GEDOcorr :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gedo_corr)
+print(plot_gedo_corr$plot)
 ```
 
-    $plot
-
 ![](../docs/figures/tutorial_phate_gedo_corr-1.png)
-
-
-    $phate
-              PHATE1       PHATE2 SAMPLING_OMIC_NUMBER    diag
-               <num>        <num>               <char>  <fctr>
-      1: -0.04538736  0.003837577            N32140213     SjD
-      2:  0.01354159  0.020099457            N32140214     SjD
-      3:  0.03231302 -0.004349654            N32140221 Control
-      4: -0.02598030  0.019402249            N32141637     SjD
-      5:  0.03326735 -0.019763474            N32141643 Control
-     ---                                                      
-    643: -0.03202304  0.017183610            N32170643     SjD
-    644: -0.04599638  0.002815309            N32170644     SjD
-    645: -0.04131964  0.011541915            N32170665     SjD
-    646:  0.02845121  0.006650431            N32170675 Control
-    647:  0.01811961  0.015079214            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
 
 ``` r
 ggsave(plot_gedo_corr$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
@@ -1359,55 +1272,10 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_umap_gedo)
+print(plot_umap_gedo$plot)
 ```
 
-    $plot
-
-<img src="../docs/figures/tutorial_phate%20umap%20gedo-1.png"
-data-fig-align="center" />
-
-
-    $phate
-              PHATE1        PHATE2 SAMPLING_OMIC_NUMBER    diag
-               <num>         <num>               <char>  <fctr>
-      1: -0.04369566 -6.534819e-03            N32140213     SjD
-      2:  0.01055881  2.885500e-03            N32140214     SjD
-      3:  0.02840189 -6.637303e-05            N32140221 Control
-      4: -0.02907512  1.789828e-02            N32141637     SjD
-      5:  0.03760938 -7.638586e-03            N32141643 Control
-     ---                                                       
-    643: -0.02884074  1.741805e-02            N32170643     SjD
-    644: -0.03231347  5.892613e-04            N32170644     SjD
-    645: -0.03587275  1.574309e-02            N32170665     SjD
-    646:  0.03138815  2.869964e-03            N32170675 Control
-    647:  0.01139299  1.609734e-02            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
+![](../docs/figures/tutorial_phate%20umap%20gedo-1.png)
 
 ``` r
 ggsave(plot_umap_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
@@ -1422,60 +1290,13 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## PCA1 :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_pca1)
+print(plot_pca1$plot)
 ```
 
-    $plot
-
 ![](../docs/figures/tutorial_phate%20pca%201-1.png)
-
-
-    $phate
-               PHATE1        PHATE2 SAMPLING_OMIC_NUMBER    diag
-                <num>         <num>               <char>  <fctr>
-      1: -0.048272747 -6.334955e-03            N32140213     SjD
-      2:  0.025992622  6.917704e-05            N32140214     SjD
-      3:  0.036880990 -3.577559e-02            N32140221 Control
-      4: -0.032914395  1.209799e-02            N32141637     SjD
-      5:  0.037210887 -4.115078e-02            N32141643 Control
-     ---                                                        
-    643: -0.036445021  1.057937e-02            N32170643     SjD
-    644: -0.020159530  1.225498e-02            N32170644     SjD
-    645: -0.042013155  6.690864e-03            N32170665     SjD
-    646:  0.023719296  1.142666e-02            N32170675 Control
-    647: -0.003250135  1.807806e-02            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
 
 ``` r
 ggsave(plot_pca1$plot,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
@@ -1490,59 +1311,12 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ## MEAN OF Z-SCORES :
 
 ``` r
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_mean_zscore)
+print(plot_mean_zscore$plot)
 ```
 
-    $plot
-
 ![](../docs/figures/tutorial_phate%20meanzscore-1.png)
-
-
-    $phate
-               PHATE1       PHATE2 SAMPLING_OMIC_NUMBER    diag
-                <num>        <num>               <char>  <fctr>
-      1: -0.042862118 -0.004506581            N32140213     SjD
-      2:  0.045036044 -0.007447289            N32140214     SjD
-      3:  0.037572364  0.003794597            N32140221 Control
-      4: -0.022671014  0.005621501            N32141637     SjD
-      5:  0.069795976 -0.022237565            N32141643 Control
-     ---                                                       
-    643: -0.047600071  0.001495533            N32170643     SjD
-    644: -0.008417708 -0.010751643            N32170644     SjD
-    645: -0.046233452  0.003139324            N32170665     SjD
-    646:  0.003996622  0.011815083            N32170675 Control
-    647: -0.010817087  0.014555618            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
 
 ``` r
 ggsave(plot_mean_zscore$plot,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
@@ -1559,55 +1333,10 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ``` r
 use_python("/usr/bin/python3", required = TRUE)
 plot_ssgsea= plot_phate(data=matrix_list$ssGSEA$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_ssgsea)
+print(plot_ssgsea$plot)
 ```
 
-    $plot
-
-<img src="../docs/figures/tutorial_phate%20ssgsea-1.png"
-data-fig-align="center" />
-
-
-    $phate
-               PHATE1        PHATE2 SAMPLING_OMIC_NUMBER    diag
-                <num>         <num>               <char>  <fctr>
-      1: -0.042605717  0.0008627526            N32140213     SjD
-      2:  0.025765363 -0.0131837180            N32140214     SjD
-      3:  0.052489918 -0.0130914335            N32140221 Control
-      4: -0.035504149  0.0142364063            N32141637     SjD
-      5:  0.050915127 -0.0079218928            N32141643 Control
-     ---                                                        
-    643: -0.040868895  0.0114867706            N32170643     SjD
-    644: -0.024701811 -0.0271573851            N32170644     SjD
-    645: -0.026351460  0.0072700474            N32170665     SjD
-    646:  0.009156925  0.0198617659            N32170675 Control
-    647: -0.008770400  0.0235693617            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
+![](../docs/figures/tutorial_phate%20ssgsea-1.png)
 
 ``` r
 ggsave(plot_ssgsea$plot,file=paste0(folder_for_res,"phate_clinical_features_ssgsea.pdf"), width = 20, height = 10)
@@ -1624,55 +1353,10 @@ autoantibodies, (F) Quantification of SSB autoantibodies.
 ``` r
 use_python("/usr/bin/python3", required = TRUE)
 plot_gsva= plot_phate(data=matrix_list$GSVA$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gsva)
+print(plot_gsva$plot)
 ```
 
-    $plot
-
-<img src="../docs/figures/tutorial_phate%20gsva-1.png"
-data-fig-align="center" />
-
-
-    $phate
-               PHATE1       PHATE2 SAMPLING_OMIC_NUMBER    diag
-                <num>        <num>               <char>  <fctr>
-      1: -0.043918455  0.003768611            N32140213     SjD
-      2:  0.027576317 -0.007056652            N32140214     SjD
-      3:  0.048326312 -0.003150407            N32140221 Control
-      4: -0.047932256  0.007703865            N32141637     SjD
-      5:  0.044866877  0.003034915            N32141643 Control
-     ---                                                       
-    643: -0.039211159  0.007376249            N32170643     SjD
-    644: -0.011017607 -0.031923058            N32170644     SjD
-    645: -0.031651266  0.003496462            N32170665     SjD
-    646:  0.002936656  0.023709026            N32170675 Control
-    647: -0.017753679  0.025182341            N32170677 Control
-         EXPRESSION_PRECISESADS_IFN AUTOANTIBODY_SSA AUTOANTIBODY_SSA_52
-                              <num>            <num>               <num>
-      1:                    3.57648            596.7               592.6
-      2:                    3.82099            640.0               640.0
-      3:                   -0.11868              0.0                 0.0
-      4:                    0.15216              0.0                 0.0
-      5:                   -0.88202              0.0                 0.0
-     ---                                                                
-    643:                         NA               NA                  NA
-    644:                         NA               NA                  NA
-    645:                         NA               NA                  NA
-    646:                         NA               NA                  NA
-    647:                         NA               NA                  NA
-         AUTOANTIBODY_SSA_60 AUTOANTIBODY_SSB
-                       <num>            <num>
-      1:                72.5                0
-      2:               640.0               24
-      3:                 0.0                0
-      4:                 0.0                0
-      5:                 0.0                0
-     ---                                     
-    643:                  NA               NA
-    644:                  NA               NA
-    645:                  NA               NA
-    646:                  NA               NA
-    647:                  NA               NA
+![](../docs/figures/tutorial_phate%20gsva-1.png)
 
 ``` r
 ggsave(plot_gsva$plot,file=paste0(folder_for_res,"phate_clinical_features_gsva.pdf"), width = 20, height = 10)

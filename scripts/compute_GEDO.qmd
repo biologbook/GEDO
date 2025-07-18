@@ -127,12 +127,15 @@ num_cores=3
   #Standardisation between 0 and 1
   rna_seq_data_noized[, (names(rna_seq_data_noized)) := lapply(.SD, function(x) (x - min(x, na.rm=TRUE)) / (max(x, na.rm=TRUE) - min(x, na.rm=TRUE))), .SDcols = names(rna_seq_data_noized)]
   
-  
+   rm(dt_biased)
+   
   #Verification
   cat(sprintf("Bias applied on  %d genes × %d individuals\n",
               length(genes_idx), length(indiv_idx)))
   
-  rm(dt_biased)
+ 
+  
+  print(plot_noized_data)
 
 ```
 
@@ -1032,7 +1035,9 @@ cat("f")
 
 ```{r combining heatmaps}
 
-
+#| fig.width: 20
+#| fig.height: 20
+#| fig.align: "center"
 
 gt_a <- readRDS(paste0(folder_for_res, "gt_a.rds"))
 gt_b <- readRDS(paste0(folder_for_res, "gt_b.rds"))
@@ -1100,6 +1105,8 @@ comb <- ggdraw(comb) +
     plot.background = element_rect(fill = "white", colour = NA)
   )
 
+# print(comb)
+
 ggsave(
   filename = file.path(folder_for_res, "combined_heatmaps.png"),
   plot     = comb,
@@ -1110,7 +1117,6 @@ ggsave(
 )
 
 
-# print(comb)
 
 
 
@@ -1147,7 +1153,10 @@ Dotted lines represent the mean value of each clustering metric across the numbe
 # 12. Combined figures
 
 ```{r combine res figures}
-
+#| fig.width: 30
+#| fig.height: 20
+#| fig.align: "center"
+#| 
 a_g <- readRDS(file.path(folder_for_res, "a.rds"))
 b_g <- readRDS(file.path(folder_for_res, "b.rds"))
 c_g <- readRDS(file.path(folder_for_res, "c.rds"))
@@ -1196,12 +1205,9 @@ print(comb)
 
 ```{r phate gedo Mm}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gedo)
+print(plot_gedo$plot)
 ggsave(plot_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
 
 
@@ -1214,12 +1220,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 
 ```{r phate_gedo_corr}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gedo_corr)
+print(plot_gedo_corr$plot)
 ggsave(plot_gedo_corr$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
 
 
@@ -1230,13 +1233,11 @@ PHATE projection of module matrix obtained with GEDOcorr with phateR R package (
 ## UMAP-GEDO :
 
 ```{r phate umap gedo}
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
+
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_umap_gedo)
+print(plot_umap_gedo$plot)
 ggsave(plot_umap_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
 
 
@@ -1248,13 +1249,10 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 
 ```{r phate pca 1}
 
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 
 plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_pca1)
+print(plot_pca1$plot)
 ggsave(plot_pca1$plot,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
 
 
@@ -1266,13 +1264,9 @@ PHATE projection of module matrix obtained with PCA1 with phateR R package (k=15
 
 ```{r phate meanzscore}
 
-
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_mean_zscore)
+print(plot_mean_zscore$plot)
 ggsave(plot_mean_zscore$plot,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
 
 
@@ -1283,12 +1277,10 @@ PHATE projection of module matrix obtained with MSZ with phateR R package (k=15,
 ## ssGSEA :
 
 ```{r phate ssgsea}
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
+
 use_python("/usr/bin/python3", required = TRUE)
 plot_ssgsea= plot_phate(data=matrix_list$ssGSEA$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_ssgsea)
+print(plot_ssgsea$plot)
 ggsave(plot_ssgsea$plot,file=paste0(folder_for_res,"phate_clinical_features_ssgsea.pdf"), width = 20, height = 10)
 
 ```
@@ -1298,12 +1290,10 @@ PHATE projection of module matrix obtained with ssGSEA with phateR R package (k=
 ## GSVA :
 
 ```{r phate gsva}
-#| fig.width: 12
-#| fig.height: 6
-#| fig.align: "center"
+
 use_python("/usr/bin/python3", required = TRUE)
 plot_gsva= plot_phate(data=matrix_list$GSVA$module_matrix, k = 15, meta_data = PS_brutes)
-print(plot_gsva)
+print(plot_gsva$plot)
 ggsave(plot_gsva$plot,file=paste0(folder_for_res,"phate_clinical_features_gsva.pdf"), width = 20, height = 10)
 
 ```
