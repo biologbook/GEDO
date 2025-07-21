@@ -1234,7 +1234,8 @@ plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = P
 print(plot_gedo$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20gedo%20Mm-1.png)
+<img src="../docs/figures/tutorial_phate%20gedo%20Mm-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo.pdf"), width = 20, height = 10)
@@ -1254,7 +1255,8 @@ plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta
 print(plot_gedo_corr$plot)
 ```
 
-![](../docs/figures/tutorial_phate_gedo_corr-1.png)
+<img src="../docs/figures/tutorial_phate_gedo_corr-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_gedo_corr$plot,file=paste0(folder_for_res,"phate_clinical_features_gedo_corr.pdf"), width = 20, height = 10)
@@ -1275,7 +1277,8 @@ plot_umap_gedo= plot_phate(data=matrix_list$UMAP_GEDO$module_matrix, k = 15, met
 print(plot_umap_gedo$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20umap%20gedo-1.png)
+<img src="../docs/figures/tutorial_phate%20umap%20gedo-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_umap_gedo$plot,file=paste0(folder_for_res,"phate_clinical_features_umap_gedo.pdf"), width = 20, height = 10)
@@ -1296,7 +1299,8 @@ plot_pca1= plot_phate(data=matrix_list$PCA1$module_matrix, k = 15, meta_data = P
 print(plot_pca1$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20pca%201-1.png)
+<img src="../docs/figures/tutorial_phate%20pca%201-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_pca1$plot,file=paste0(folder_for_res,"phate_clinical_features_pca1.pdf"), width = 20, height = 10)
@@ -1316,7 +1320,8 @@ plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 1
 print(plot_mean_zscore$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20meanzscore-1.png)
+<img src="../docs/figures/tutorial_phate%20meanzscore-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_mean_zscore$plot,file=paste0(folder_for_res,"phate_clinical_features_mean_z_score.pdf"), width = 20, height = 10)
@@ -1336,7 +1341,8 @@ plot_ssgsea= plot_phate(data=matrix_list$ssGSEA$module_matrix, k = 15, meta_data
 print(plot_ssgsea$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20ssgsea-1.png)
+<img src="../docs/figures/tutorial_phate%20ssgsea-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_ssgsea$plot,file=paste0(folder_for_res,"phate_clinical_features_ssgsea.pdf"), width = 20, height = 10)
@@ -1356,7 +1362,8 @@ plot_gsva= plot_phate(data=matrix_list$GSVA$module_matrix, k = 15, meta_data = P
 print(plot_gsva$plot)
 ```
 
-![](../docs/figures/tutorial_phate%20gsva-1.png)
+<img src="../docs/figures/tutorial_phate%20gsva-1.png"
+data-fig-align="center" />
 
 ``` r
 ggsave(plot_gsva$plot,file=paste0(folder_for_res,"phate_clinical_features_gsva.pdf"), width = 20, height = 10)

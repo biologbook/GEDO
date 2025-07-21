@@ -1204,6 +1204,9 @@ print(comb)
 ## GEDO :
 
 ```{r phate gedo Mm}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo= plot_phate(data=matrix_list$GEDO$module_matrix, k = 15, meta_data = PS_brutes)
@@ -1219,6 +1222,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## GEDOcorr :
 
 ```{r phate_gedo_corr}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_gedo_corr= plot_phate(data=matrix_list$GEDOcorr$module_matrix, k = 15, meta_data = PS_brutes)
@@ -1233,6 +1239,9 @@ PHATE projection of module matrix obtained with GEDOcorr with phateR R package (
 ## UMAP-GEDO :
 
 ```{r phate umap gedo}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 
@@ -1248,6 +1257,9 @@ PHATE projection of module matrix obtained with UMAP-GEDO with phateR R package 
 ## PCA1 :
 
 ```{r phate pca 1}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 
@@ -1263,6 +1275,9 @@ PHATE projection of module matrix obtained with PCA1 with phateR R package (k=15
 ## MEAN OF Z-SCORES :
 
 ```{r phate meanzscore}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_mean_zscore= plot_phate(data=matrix_list$MEAN_Z_SCORES$module_matrix, k = 15, meta_data = PS_brutes)
@@ -1277,6 +1292,9 @@ PHATE projection of module matrix obtained with MSZ with phateR R package (k=15,
 ## ssGSEA :
 
 ```{r phate ssgsea}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_ssgsea= plot_phate(data=matrix_list$ssGSEA$module_matrix, k = 15, meta_data = PS_brutes)
@@ -1290,6 +1308,9 @@ PHATE projection of module matrix obtained with ssGSEA with phateR R package (k=
 ## GSVA :
 
 ```{r phate gsva}
+#| fig.width: 20
+#| fig.height: 10
+#| fig.align: "center"
 
 use_python("/usr/bin/python3", required = TRUE)
 plot_gsva= plot_phate(data=matrix_list$GSVA$module_matrix, k = 15, meta_data = PS_brutes)
