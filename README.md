@@ -14,7 +14,7 @@ Its supervised and topology-based design enables finer resolution of disease-rel
 
 # 📂 Repository structure
 ```
-📂 Repository structure
+
 ├── docs/
 │   └── TUTORIAL.html
 │       Quarto edited file which runs analysis, shows code execution, and displays figures.
