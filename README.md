@@ -56,7 +56,6 @@ GEDO/
 │
 ├── article_GEDO/
 │   ├── README.md
-│   │   Description and instructions to reproduce results for the GEDO article.
 │   │
 │   ├── docs/
 │   │   └── TUTORIAL.md
@@ -84,7 +83,6 @@ GEDO/
 │
 ├── article_mGEDO/
 │   ├── README.md
-│   │   Description and instructions to reproduce results for the mGEDO article.
 │   │
 │   └── scripts/
 │       └── mGEDO_compute.qmd
