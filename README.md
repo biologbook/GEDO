@@ -13,42 +13,47 @@ Its supervised and topology-based design enables finer resolution of disease-rel
 
 
 # 📂 Repository structure
+```
+📂 Repository structure
 ├── docs/
 │   └── TUTORIAL.html
-│       └── Quarto edited file which runs analysis, shows code execution, and displays figures.
-│
+│       Quarto edited file which runs analysis, shows code execution, and displays figures.
+
 ├── R/
 │   ├── functions_article.R
-│   │   └── Functions for computing module matrices with all methods except GEDO, and to run comparison analyses.
+│   │   Functions for computing module matrices with all methods except GEDO,
+│   │   and to run comparison analyses.
 │   └── GEDO.R
-│       └── Not provided in this repository. Contains functions necessary to run the GEDO algorithm.
-│           This script can be shared upon request to the authors, under certain conditions.
-│           It must be placed in the R/ folder.
-│
+│       Not provided in this repository. Contains functions necessary to run
+│       the GEDO algorithm. This script can be shared upon request to the authors,
+│       under certain conditions. It must be placed in the R/ folder.
+
 ├── scripts/
 │   ├── GEDO_toy_example.R
-│   │   └── Script which runs GEDO on randomly generated values and plots a heatmap.
+│   │   Script which runs GEDO on randomly generated values and plots a heatmap.
 │   ├── compute_GEDO.qmd
-│   │   └── Quarto Markdown file to run GEDO and generate figures.
+│   │   Quarto Markdown file to run GEDO and generate figures.
 │   ├── 1_grid_search.R
-│   │   └── Script to run GEDO on each configuration tested for sensitivity analysis.
+│   │   Script to run GEDO on each configuration tested for sensitivity analysis.
 │   ├── 2_evaluation_grid.R
-│   │   └── Script to compute classification metrics for each configuration.
+│   │   Script to compute classification metrics for each configuration.
 │   ├── 3_cancer_subtypes.R
-│   │   └── Script to run all analyses on the TCGA-BRCA dataset.
+│   │   Script to run all analyses on the TCGA-BRCA dataset.
 │   ├── 4_functions_reviewing_TCGA.R
-│   │   └── Functions required for TCGA-BRCA dataset analysis.
+│   │   Functions required for TCGA-BRCA dataset analysis.
 │   ├── 5_data_points_needed.R
-│   │   └── Script to analyze GEDO performance depending on the number of observations.
+│   │   Script to analyze GEDO performance depending on the number of observations.
 │   ├── 6_clustering.R
-│   │   └── Script for more detailed clustering analysis than in compute_GEDO.qmd.
+│   │   Script for more detailed clustering analysis than in compute_GEDO.qmd.
 │   └── 7_classification.R
-│       └── Script for more detailed classification analysis than in compute_GEDO.qmd.
+│       Script for more detailed classification analysis than in compute_GEDO.qmd.
+```
+
 
 
 
 
 # 📄 Tutorial 
 👉 [See quarto tutorial](docs/TUTORIAL.md)
-[▶️ See explicative video](https://github.com/user/repo/releases/download/v1.0/GEDO_manim_animation.mp4)
+[▶️ See explicative video](https://github.com/biologbook/GEDO/releases/tag/uploading_GEDO_manim_animation/GEDO_manim_animation.mp4)
 
