@@ -46,13 +46,14 @@ GEDO/
 │   │   │   Functions for computing module matrices with all methods except GEDO,
 │   │   │   and to run comparison analyses.
 │   │   └── GEDO.R
-│   │       Core implementation of the GEDO algorithm.
-│   │       Additional details or extended version may be shared upon request.
+│   │       Not provided in this repository. Contains functions necessary to run the GEDO algorithm. This script can be shared upon request to the authors, under certain conditions. It must be placed in the R/GEDO/ folder.
 │   │
 │   └── mGEDO/
-│       └── mGEDO_functions.R
+│       ├── mGEDO_functions.R
 │           Functions implementing the mGEDO method (extension of GEDO),
 │           including modified algorithms and additional analysis utilities.
+│       └── mGEDO.R
+│           Not provided in this repository. Contains functions necessary to run the mGEDO algorithm. This script can be shared upon request to the authors, under certain conditions. It must be placed in the R/mGEDO/ folder.
 │
 ├── article_GEDO/
 │   ├── README.md
