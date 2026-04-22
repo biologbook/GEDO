@@ -1,4 +1,4 @@
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -10,8 +10,8 @@ packages_list = c("data.table", "tryCatchLog","rlist",
 
 install_and_load(packages_list)
 
-folder_for_res = "/home/clem/GEDO/results/"
-folder_to_data ="/home/clem/GEDO/results/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/"
+folder_to_data ="/home/clem/GEDO/article_GEDO/data/"
 
 
 res=readRDS(paste0(folder_for_res, "module_auc_comparison_by_config.rds"))

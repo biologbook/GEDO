@@ -1,7 +1,7 @@
 
 # 1. packages and data ----------------------------------------------------
 
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -16,14 +16,14 @@ packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
 
 print(sapply(packages_list, require, character.only = TRUE))
 
-matrix_list_raw = readRDS("/home/clem/GEDO/results/matrix_list_without_noize.rds")
+matrix_list_raw = readRDS("/home/clem/GEDO/article_GEDO/results/matrix_list_without_noize.rds")
 
 
-if(file.exists("/home/clem/GEDO/results/meta_data.rds")){
-  meta_data = readRDS("/home/clem/GEDO/results/meta_data.rds")
+if(file.exists("/home/clem/GEDO/article_GEDO/results/meta_data.rds")){
+  meta_data = readRDS("/home/clem/GEDO/article_GEDO/results/meta_data.rds")
 }else{
 
-  folder_to_data ="/home/clem/GEDO/data/"
+  folder_to_data ="/home/clem/GEDO/article_GEDO/data/"
   
   PS_brutes <- readRDS(paste0(folder_to_data,"PS_brutes.rds"))
   rna_seq_data = readRDS(paste0(folder_to_data, "bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds"))
@@ -53,11 +53,11 @@ meta_data[PS_brutes, SSA := i.AUTOANTIBODY_SSA_CALL, on="SAMPLING_OMIC_NUMBER"]
 meta_data[PS_brutes, SSB := i.AUTOANTIBODY_SSB_CALL, on="SAMPLING_OMIC_NUMBER"]
 meta_data[PS_brutes, ESSDAI := i.SJS_ESSDAI, on="SAMPLING_OMIC_NUMBER"]
 
-saveRDS(meta_data, "/home/clem/GEDO/results/meta_data.rds")
+saveRDS(meta_data, "/home/clem/GEDO/article_GEDO/results/meta_data.rds")
 }
 
 # folder_for_res = "/shared/projects/toposads/finalresult/7_gedo_reviewing/classification/"
-folder_for_res = "/home/clem/GEDO/results/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/"
 num_cores=5
 
 

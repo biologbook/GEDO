@@ -1,0 +1,1464 @@
+---
+title: "mGEDO - PRECISESADS"
+format: pdf
+editor: visual
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r config}
+
+folder_for_inputs = "/home/clem/GEDO/article_mGEDO/data/"
+
+folder_for_res = "/home/clem/GEDO/article_mGEDO/results/"
+folder_for_data = "/home/clem/GEDO/article_mGEDO/data"
+num_cores=5
+
+source("/home/clem/GEDO/R/mGEDO/mGEDO_functions.R")
+
+#TODO : charger dans les packages dans chaque if() comme ça ils chargent pas à chaque render.
+
+library(data.table)
+library(readr)
+
+
+PS_brutes <- readRDS(paste0(folder_for_data, "PS_brutes.rds"))
+  PS_brutes[, diag := DIAGNOSIS_DISEASE_AT_ONSET]
+  PS_brutes[, control := DIAGNOSIS_ARM]
+  PS_brutes[control=="Control", diag:="Control"]
+  PS_brutes[diag=="SjS", diag:="SjD"]
+
+```
+
+# 1. mGEDO preprocessing
+
+```         
+```
+
+```{r extraction of data}
+
+if (
+  length(list.files(file.path(folder_for_inputs, "X_module_subsets_dir"))) == 382 &&
+  length(list.files(file.path(folder_for_inputs, "Y_module_subsets_dir"))) == 382
+) {
+  message("Chaussabel modules already extracted.")
+ 
+}else{
+  
+packages_list = c("data.table","readr", "tryCatchLog","msigdbr","msigdbdf" ,"IlluminaHumanMethylation450kanno.ilmn12.hg19","biomaRt")
+
+# install_and_load(packages_list)
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+
+# #RNAseq data
+cat("Loading RNAseq data...\n")
+rna_seq_data = readRDS(paste0(folder_for_data,"sjd_ctrl_only/rna_seq_corrected_verylowvar_filtred.rds"))
+
+# rna_seq_data[, SAMPLING_OMIC_NUMBER:=paste0("N",SAMPLING_OMIC_NUMBER)]
+rna_seq_data[PS_brutes, diag := i.DIAGNOSIS_DISEASE_AT_ONSET, on="SAMPLING_OMIC_NUMBER"]
+rna_seq_data[PS_brutes, control:=i.DIAGNOSIS_ARM, on="SAMPLING_OMIC_NUMBER"]
+rna_seq_data[control=="Control", diag:="Control"]
+rna_seq_data=rna_seq_data[,diag:=factor(diag, levels = c("Control","SjS"))]
+rna_seq_data=rna_seq_data[diag %in% c("Control","SjS")]
+rna_seq_data[diag=="SjS",diag:="SjD"]
+diag_t = rna_seq_data$diag
+diag_t=factor(diag_t,levels=c("SjD","Control"))
+omic_id_t = rna_seq_data$SAMPLING_OMIC_NUMBER
+id_diag_tab_t = data.table(SAMPLING_OMIC_NUMBER=omic_id_t, diag=diag_t)
+rna_seq_data[, diag:=NULL][, control:=NULL]
+
+
+#Methylomic_data
+cat("Loading methylomic data...\n")
+methylomic_data <- readRDS(paste0(folder_for_data,"t_corrected_data_BPSSSCISRB_EPIC_FINAL.rds"))
+omic_id_m = methylomic_data$SAMPLING_OMIC_NUMBER
+id_diag_tab_m = data.table(SAMPLING_OMIC_NUMBER=omic_id_m, diag="")
+id_diag_tab_m[PS_brutes, diag:= i.diag, on="SAMPLING_OMIC_NUMBER"]
+id_diag_tab_m=id_diag_tab_m[SAMPLING_OMIC_NUMBER %in% omic_id_t]
+common_ids = id_diag_tab_m$SAMPLING_OMIC_NUMBER
+methylomic_data=methylomic_data[SAMPLING_OMIC_NUMBER %in% omic_id_t]
+methylomic_data <- methylomic_data[, SAMPLING_OMIC_NUMBER:=NULL]
+
+saveRDS(id_diag_tab_t, file=paste0(folder_for_inputs, "id_diag_tab_t.rds"))
+saveRDS(id_diag_tab_m, file=paste0(folder_for_inputs, "id_diag_tab_m.rds"))
+saveRDS(common_ids, paste0(folder_for_inputs, "common_ids.rds"))
+
+
+#Gene modules : 
+cat("Loading methylomic data...\n")
+chauss_modules = load_chaussabel_modules()
+modules = unique(chauss_modules$gs_name)
+
+
+cat("Spliting X by modules\n")
+X_modules_dir=split_X(X = rna_seq_data, modules=modules, reactome_modules = chauss_modules,folder_for_data = folder_for_inputs, omic_id_x=omic_id_t)
+rm(rna_seq_data)
+
+cat("Spliting Y by modules\n")
+Y_modules_dir=split_Y(Y = methylomic_data,modules = modules, reactome_modules = chauss_modules, folder_for_data = folder_for_inputs, omic_id_y=common_ids)
+rm(methylomic_data)
+
+}
+
+
+```
+
+# 2. mGEDO computing
+
+```{r mgedo comput}
+
+#charge omic_id from X and Y subsets
+id_diag_tab_t = readRDS(paste0(folder_for_inputs,"id_diag_tab_t.rds"))
+id_diag_tab_m = readRDS(paste0(folder_for_inputs,"id_diag_tab_m.rds"))
+
+omic_id_t=id_diag_tab_t$SAMPLING_OMIC_NUMBER
+omic_id_m=id_diag_tab_m$SAMPLING_OMIC_NUMBER
+
+ids_communs <- intersect(omic_id_t, omic_id_m)
+
+diag_t = PS_brutes[SAMPLING_OMIC_NUMBER %in% omic_id_t]$diag
+diag_m = PS_brutes[SAMPLING_OMIC_NUMBER %in% ids_communs]$diag
+
+diag = copy(diag_t)
+names(diag) = omic_id_t
+
+config_by_default <- list(
+  test_setting = F,
+  diag = diag,
+  reference_group = "Control",
+  dim_reduc_method="none",
+  dim_reduc_dist_method = NULL,
+  ncomp = NULL,
+  klof = NULL,
+  scale_ts = FALSE,
+  k_graph = 15,
+  core_pct = 0.9,
+  category = "chaussabel",
+  subcategory = NULL,
+  integration_method=NULL,
+  omic_id_x = omic_id_t,
+  omic_id_y = omic_id_m,
+  num_cores = num_cores,
+  folder_for_data=folder_for_inputs
+)
+
+
+#---------mGEDO XY
+if(file.exists(paste0(folder_for_res,"data/mgedo_obj.rds"))){
+  mgedo_obj = readRDS(paste0(folder_for_res,"data/mgedo_obj.rds"))
+}else{
+  
+packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                  "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                  "future.apply","dbscan", "progressr", "dplyr", "tidyr","parallel","cluster","phateR","reticulate",
+                  "devtools", "bench","RANN", "BiocParallel",
+                  "minfi", 
+                  "IlluminaHumanMethylation450kanno.ilmn12.hg19","circlize","NEMO","SNFtool","biomaRt","futile.logger","logging")
+
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+  
+
+config  <- modifyList(config_by_default, list(name="mgedo_XY_nemo", integration_type="XY", integration_method="nemo", distance="euclidean", dim_reduc_method="none"))
+
+mgedo_obj = mgedo(config=config)
+saveRDS(mgedo_obj,paste0(folder_for_data,"mgedo_obj.rds"))
+}
+
+
+
+#---------mGEDO X+Y
+
+if(file.exists(paste0(folder_for_res,"data/mgedo_X_Y_obj.rds"))){
+  mgedo_X_Y_obj = readRDS(paste0(folder_for_res,"data/mgedo_X_Y_obj.rds"))
+}else{
+  
+  packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                  "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                  "future.apply","dbscan", "progressr", "dplyr", "tidyr","parallel","cluster","phateR","reticulate",
+                  "devtools", "bench","RANN", "BiocParallel",
+                  "minfi", 
+                  "IlluminaHumanMethylation450kanno.ilmn12.hg19","circlize","NEMO","SNFtool","biomaRt","futile.logger","logging")
+
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+  config  <- modifyList(config_by_default, list(name="mgedo_X_and_Y", integration_type="X+Y", distance="euclidean", dim_reduc_method="none"))
+  
+  mgedo_X_Y_obj = mgedo(config=config)
+saveRDS(mgedo_X_Y_obj,paste0(folder_for_data,"mgedo_X_Y_obj.rds"))
+}
+
+
+
+
+
+```
+
+# 3. Plots on mGEDO embedding
+
+```{r compute embeddings}
+
+
+if(file.exists(paste0(folder_for_res,"embeddings/","embeddings_mgedo.rds"))){
+ emb_res=readRDS(paste0(folder_for_res,"embeddings/","embeddings_mgedo.rds")) 
+}else{
+  
+packages_list = c("phateR","uwot","cowplot","patchwork","ggplot2","devtools","reticulate","rlist")
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+sapply(packages_list, require, character.only = TRUE)
+  
+  
+gene_sets_to_test="chaussabel"
+
+mgedo_obj_list_metadata=prepare_mgedo_obj_metadata(folder_for_mgedo_obj = folder_for_data)
+saveRDS(mgedo_obj_list_metadata,paste0(folder_for_res,"embeddings/","mgedo_obj_list_metadata.rds"))
+
+emb_res = plot_phate_umap_on_mgdedo(mgedo_obj_list_metadata, folder_for_data, folder_for_res = paste0(folder_for_res,"embeddings/"))
+
+saveRDS(emb_res, paste0(folder_for_res,"embeddings/","embeddings_mgedo.rds"))
+}
+
+
+```
+
+```{r fig embedding}
+
+mgedo_obj_list_metadata=readRDS(paste0(folder_for_res,"embeddings/","mgedo_obj_list_metadata.rds"))
+
+packages_list = c("data.table","readr", "tryCatchLog","msigdbr","msigdbdf" ,"IlluminaHumanMethylation450kanno.ilmn12.hg19","biomaRt","ggplot2","patchwork","cowplot")
+
+# install_and_load(packages_list)
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+#Renaming module matrix by function 
+module_matrix=mgedo_obj_list_metadata$list_mgedo_obj$`/mgedo_obj`$module_matrix
+chauss_modules = load_chaussabel_modules()
+module_map <- unique(
+  chauss_modules[, .(gs_name, Function)]
+)
+modules_in_matrix <- colnames(module_matrix)
+rename_vector <- module_map$Function[
+  match(modules_in_matrix, module_map$gs_name)
+]
+rename_vector[is.na(rename_vector)] <- modules_in_matrix[is.na(rename_vector)]
+setnames(module_matrix, modules_in_matrix, rename_vector)
+
+
+#Correlation circle plot
+circle_plot_umap = corr_circle_plot(
+  module_matrix = module_matrix,
+  embedding = emb_res$embedding_list$umap_2d[, .(UMAP1, UMAP2)],
+  dim_names = c("UMAP1", "UMAP2"))
+
+
+circle_plot_phate = corr_circle_plot(
+  module_matrix = module_matrix,
+  embedding = emb_res$embedding_list$phate_2d[, .(PHATE1, PHATE2)],
+  dim_names = c("PHATE1", "PHATE2"))
+
+
+
+
+
+a <- emb_res$plot_list$X_plot_phate$p_diag
+b <- emb_res$plot_list$X_plot_umap$p_diag
+c <- emb_res$plot_list$Y_plot_phate$p_diag
+d <- emb_res$plot_list$Y_plot_umap$p_diag
+e <- emb_res$plot_list$plot_phate$p_diag
+f <- emb_res$plot_list$plot_umap$p_diag
+g <- emb_res$plot_list$plot_phate$p_kirou
+h <- emb_res$plot_list$plot_umap$p_kirou
+i <- emb_res$plot_list$plot_phate$p_ssa52
+j <- emb_res$plot_list$plot_umap$p_ssa52
+k <- emb_res$plot_list$plot_phate$p_ssa60
+l <- emb_res$plot_list$plot_umap$p_ssa60
+m <- emb_res$plot_list$plot_phate$p_ssb
+n <- emb_res$plot_list$plot_umap$p_ssb
+o <- circle_plot_phate
+p <- circle_plot_umap
+
+
+ # comb <- a/b/c/d/e/f/g/h/i/j/k/l/m/n/o/p+
+ #    plot_layout(ncol = 2, guides = "collect") +
+ #    plot_annotation(tag_levels = "a") &
+ #    theme(
+ #      plot.tag          = element_text(size = 20, face = "bold"),
+ #      plot.tag.position = c(0, 1)
+ #    )
+ 
+  comb <- a/b/c/d/e/f/o/p+
+    plot_layout(ncol = 2, guides = "collect") +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+  
+  
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/embbedings.pdf"),width = 15,height = 20)
+```
+
+```{r verif missing omic}
+
+id_missing_omic=omic_id_t[!omic_id_t %in% omic_id_m]
+
+emb_res$embedding_list$umap_2d$missing_omic <-
+  emb_res$embedding_list$umap_2d$SAMPLING_OMIC_NUMBER %in% id_missing_omic
+
+emb_res$embedding_list$phate_2d$missing_omic <-
+  emb_res$embedding_list$phate_2d$SAMPLING_OMIC_NUMBER %in% id_missing_omic
+
+
+theme_cadre <- theme(
+    panel.border = element_rect(
+      colour = "black",
+      fill   = NA,
+      linewidth = 0.6
+    ),
+    plot.background = element_rect(
+      colour = NA,
+      fill   = NA
+    ),
+    panel.spacing = unit(2, "pt")
+  )
+
+
+plot_umap_missing_omic  = ggplot(emb_res$embedding_list$umap_2d, aes(x = UMAP1, y = UMAP2, color = factor(missing_omic))) +
+                     geom_point(size=1.5, alpha=0.5) +
+                     theme_minimal()+
+                     labs(color="Missing CpG data")+
+                     scale_color_manual(values = c("TRUE"="red","FALSE"="black"))+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank())+
+    theme_cadre
+
+plot_phate_missing_omic  = ggplot(emb_res$embedding_list$phate_2d, aes(x = PHATE1, y = PHATE2, color = factor(missing_omic))) +
+                     geom_point(size=1.5, alpha=0.5) +
+                     theme_minimal()+
+                     labs(color="Missing CpG data")+
+                     scale_color_manual(values = c("TRUE"="red","FALSE"="black"))+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank())+
+    theme_cadre
+
+
+comb <-  plot_phate_missing_omic / plot_umap_missing_omic +
+    plot_layout(ncol = 2) +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/missing_omic.pdf"),width = 20,height = 6)
+
+```
+
+# 4. Signatures
+
+## 4.1. Gene sets selection
+
+```{r gene set ifn}
+
+
+if(file.exists(paste0(folder_for_res,"signatures/ifn_gene_set.rds"))){
+  ifn=readRDS(paste0(folder_for_res,"signatures/ifn_gene_set.rds"))
+}else{
+library(purrr)
+library(dplyr)
+library(ggrepel)
+
+ifn = get_gene_set(keyword = c("IFNA","INTERFERON_ALPHA"), gene_to_search = NULL,  name="ifn")
+saveRDS(ifn, paste0(folder_for_res,"signatures/ifn_gene_set.rds"))
+}
+```
+
+```{r gene set cd40}
+
+if(file.exists(paste0(folder_for_res,"signatures/cd40_gene_set.rds"))){
+  cd40=readRDS(paste0(folder_for_res,"signatures/cd40_gene_set.rds"))
+}else{
+library(purrr)
+library(dplyr)
+
+cd40 = get_gene_set(keyword ="CD40", gene_to_search = NULL,  name="cd40")
+saveRDS(cd40, paste0(folder_for_res,"signatures/cd40_gene_set.rds"))
+}
+```
+
+```{r gene set il2}
+if(file.exists(paste0(folder_for_res,"signatures/il2_gene_set.rds"))){
+  il2=readRDS(paste0(folder_for_res,"signatures/il2_gene_set.rds"))
+}else{
+library(purrr)
+library(dplyr)
+
+il2 = get_gene_set(keyword = "IL2_", gene_to_search = NULL,  name="il2")
+saveRDS(il2, paste0(folder_for_res,"signatures/il2_gene_set.rds"))
+}
+```
+
+## 4.2. Signature computing
+
+```{r extractif data - signatures}
+
+packages_list = c("data.table","readr", "tryCatchLog","msigdbr","msigdbdf" ,"IlluminaHumanMethylation450kanno.ilmn12.hg19","biomaRt")
+
+# install_and_load(packages_list)
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+msig_c2 <- msigdbr(species = "Homo sapiens", collection = "C2")
+msig=data.table(msig_c2)
+rna_data <- load_rna_seq_data()
+rna_seq_data <- rna_data$rna_seq_data
+id_diag_tab_t <- rna_data$id_diag_tab_t
+omic_id_t = rna_data$omic_id_t
+
+
+met_data=load_methylomic_data()
+methylomic_data = met_data$methylomic_data
+common_ids = met_data$common_ids
+omic_id_m = met_data$omic_id_m
+
+#-----HOME MADE SIGNATURES
+signatures = list(ifn=ifn, cd40=cd40, il2=il2)
+
+lapply(signatures, FUN = function(x) extract_data_for_signature(gene_set =x,folder_for_res=folder_for_inputs))
+
+
+#-----PUBLISHED SIGNATURES
+
+
+cd40_gene_sets=c("BIOCARTA_CD40_PATHWAY",
+"KEGG_MEDICUS_REFERENCE_CD40_NFKB_SIGNALING_PATHWAY",
+"PID_CD40_PATHWAY",
+"SIG_CD40PATHWAYMAP")
+
+il2_gene_sets = c("BIOCARTA_IL2_PATHWAY",
+                  "FUNG_IL2_SIGNALING_2",
+                  "PID_IL2_1PATHWAY",
+                  "PID_IL2_STAT5_PATHWAY",
+                  "KEGG_MEDICUS_REFERENCE_IL2_FAMILY_TO_JAK_STAT_SIGNALING_PATHWAY",
+                  "PID_IL2_PI3K_PATHWAY")
+
+pub_signatures = c(cd40_gene_sets, il2_gene_sets)
+
+lapply(pub_signatures, function(x){
+  message(x)
+  extract_data_for_signature(gs_name = x,folder_for_res = folder_for_inputs)
+})
+
+rm(methylomic_data)
+rm(met_data)
+
+
+```
+
+```{r computing signatures}
+
+
+if(file.exists(paste0(folder_for_res,"signatures/res_signatures.rds"))){
+  res_signatures=readRDS(paste0(folder_for_res,"signatures/res_signatures.rds"))
+}else{
+packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                  "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                  "future.apply","dbscan", "progressr", "dplyr", "tidyr","parallel","cluster","phateR","reticulate",
+                  "devtools", "bench","RANN", "BiocParallel",
+                  "minfi", 
+                  "IlluminaHumanMethylation450kanno.ilmn12.hg19","circlize","NEMO","SNFtool","biomaRt","futile.logger","logging","mixOmics","cowplot")
+
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+config  <- modifyList(config_by_default, list(name="mgedo_XY_nemo", integration_type="XY", integration_method="nemo", distance="euclidean", dim_reduc_method="none"))
+config$diag_after_selection = diag
+
+
+#----HOME MADE SIGNATURES
+signatures = list(ifn=ifn, cd40=cd40, il2=il2)
+
+res_signatures = lapply(signatures, function(x) compute_score_one_signature(config=config, pathway = x,folder_for_data = folder_for_inputs, diag=diag, ponderation=T,scale = F))
+saveRDS(res_signatures,paste0(folder_for_res,"signatures/res_signatures.rds"))
+}
+
+#----PUBLISHED SIGNATURES
+
+if(file.exists(paste0(folder_for_res,"signatures/res_pub_signatures.rds"))){
+  res_pub_signatures = readRDS(paste0(folder_for_res,"signatures/res_pub_signatures.rds"))
+}else{
+  
+  packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                  "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                  "future.apply","dbscan", "progressr", "dplyr", "tidyr","parallel","cluster","phateR","reticulate",
+                  "devtools", "bench","RANN", "BiocParallel",
+                  "minfi", 
+                  "IlluminaHumanMethylation450kanno.ilmn12.hg19","circlize","NEMO","SNFtool","biomaRt","futile.logger","logging","mixOmics","cowplot")
+
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+config  <- modifyList(config_by_default, list(name="mgedo_XY_nemo", integration_type="XY", integration_method="nemo", distance="euclidean", dim_reduc_method="none"))
+config$diag_after_selection = diag
+  
+  
+pub_signatures = c(cd40_gene_sets, il2_gene_sets)
+pub_gene_sets = lapply(pub_signatures,
+  function(x){
+    list = list(name=x)
+    final_gene_set = data.table(gene_symbol = unique(msig[gs_name==x]$gene_symbol))
+    final_gene_set[msig, ensembl_gene:=i.ensembl_gene, on="gene_symbol"]
+    list$final_gene_set = final_gene_set
+    return(list)
+  }
+)
+names(pub_gene_sets) = pub_signatures
+
+res_pub_signatures = lapply(pub_gene_sets, function(x){
+  message(x)
+  compute_score_one_signature(config = config,pathway = x,diag = diag,folder_for_data = folder_for_inputs,ponderation = F,scale = F)
+})
+names(res_pub_signatures) = pub_signatures
+
+saveRDS(res_pub_signatures,paste0(folder_for_res,"signatures/res_pub_signatures.rds"))
+}
+
+
+```
+
+```{r discriminant analysis}
+
+library(MASS)   
+library(caret)
+
+compute_rgcca_metrics <- function(res_signatures, 
+                                 signatures = c("ifn", "cd40", "il2")) {
+  
+  library(caret)
+  library(pROC)
+  
+  
+  customSummary <- function(data, lev = NULL, model = NULL) {
+  c(
+    twoClassSummary(data, lev, model),   # ROC, Sens, Spec
+    defaultSummary(data, lev, model)     # Accuracy, Kappa
+  )
+  }
+  
+  
+  # trainControl - AUC + accuracy
+  train_control <- trainControl(
+  method = "repeatedcv",
+  number = 5,
+  repeats = 10,
+  classProbs = TRUE,
+  summaryFunction = customSummary
+)
+  
+  results_list <- lapply(signatures, function(sig) {
+    
+    res <- res_signatures[[sig]]
+    
+    # ---- Labels ----
+    Y <- factor(res$diag_aligned)
+    Y <- factor(Y, levels = c("Control", "SjD"))  # ordre important
+    
+    # ---- Data ----
+    df_rna <- data.frame(
+      comp1 = res$rgcca_res$variates$RNA[,1],
+      comp2 = res$rgcca_res$variates$RNA[,2],
+      y = Y
+    )
+    
+    df_cpg <- data.frame(
+      comp1 = res$rgcca_res$variates$CpG[,1],
+      comp2 = res$rgcca_res$variates$CpG[,2],
+      y = Y
+    )
+    
+    # ---- RNA model (CV) ----
+    set.seed(123)
+    model_rna <- train(
+      y ~ comp1 + comp2,
+      data = df_rna,
+      method = "lda",
+      trControl = train_control,
+      metric = "ROC"
+    )
+    
+    # ---- CpG model (CV) ----
+    set.seed(123)
+    model_cpg <- train(
+      y ~ comp1 + comp2,
+      data = df_cpg,
+      method = "lda",
+      trControl = train_control,
+      metric = "ROC"
+    )
+    
+    # ---- AUC + CI ----
+    # RNA
+    lda_rna_full <- lda(y ~ comp1 + comp2, data = df_rna)
+    prob_rna <- predict(lda_rna_full)$posterior[, "SjD"]
+    roc_rna <- roc(df_rna$y, prob_rna, levels = c("Control", "SjD"), direction = "<")
+    ci_rna <- ci.auc(roc_rna)
+    
+    # CpG
+    lda_cpg_full <- lda(y ~ comp1 + comp2, data = df_cpg)
+    prob_cpg <- predict(lda_cpg_full)$posterior[, "SjD"]
+    roc_cpg <- roc(df_cpg$y, prob_cpg, levels = c("Control", "SjD"), direction = "<")
+    ci_cpg <- ci.auc(roc_cpg)
+    
+    # ---- Output ----
+    data.frame(
+      Signature = sig,
+      
+      Accuracy_RNA = model_rna$results$Accuracy,
+      AUC_RNA = model_rna$results$ROC,
+      AUC_RNA_CI_low = ci_rna[1],
+      AUC_RNA_CI_high = ci_rna[3],
+      
+      Accuracy_CpG = model_cpg$results$Accuracy,
+      AUC_CpG = model_cpg$results$ROC,
+      AUC_CpG_CI_low = ci_cpg[1],
+      AUC_CpG_CI_high = ci_cpg[3]
+    )
+  })
+  
+  do.call(rbind, results_list)
+}
+
+
+res_accuracy_rcca=compute_rgcca_metrics(res_signatures)
+saveRDS(res_accuracy_rcca,file = paste0(folder_for_res,"/tables/auc_acc_rna_cpg.rds"))
+write.csv2(res_accuracy_rcca, paste0(folder_for_res,"/tables/auc_acc_rna_cpg.csv"))
+```
+
+```{r compute detail figure for signature}
+
+packages_list = c("data.table", "FNN", "magrittr", "tryCatchLog","rlist",
+                  "igraph", "pbapply","rgl","rdist","msigdbr","msigdbdf",
+                  "future.apply","dbscan", "progressr", "dplyr", "tidyr","parallel","cluster","phateR","reticulate",
+                  "devtools", "bench","RANN", "BiocParallel",
+                  "minfi", 
+                  "IlluminaHumanMethylation450kanno.ilmn12.hg19","circlize","NEMO","SNFtool","biomaRt","futile.logger","logging","mixOmics","cowplot")
+
+.libPaths("/home/clem/R/x86_64-pc-linux-gnu-library/4.5")
+print(sapply(packages_list, require, character.only = TRUE))
+
+
+
+ifn_plot_list = get_figure_for_signature(x = res_signatures$ifn, diag=diag)
+res_signatures$ifn$plot_list = ifn_plot_list
+
+cd40_plot_list = get_figure_for_signature(x = res_signatures$cd40, diag=diag)
+res_signatures$cd40$plot_list = cd40_plot_list
+
+il2_plot_list = get_figure_for_signature(x=res_signatures$il2, diag=diag)
+res_signatures$il2$plot_list = il2_plot_list
+
+
+
+```
+
+```{r saving supp figures for signatures}
+
+
+plot_signature_detail=function(name){
+a = signatures[[name]]$plot_list$plot_roc
+b = signatures[[name]]$plot_list$plot_score
+c = signatures[[name]]$plot_list$plot_grid
+d = res_signatures[[name]]$plot_list$plot_diag
+e = res_signatures[[name]]$plot_list$p_msz_x
+f = res_signatures[[name]]$plot_list$p_msz_y
+g = res_signatures[[name]]$plot_list$p_rcca
+h = res_signatures[[name]]$plot_list$heatmap_grob
+i = res_signatures[[name]]$plot_list$heatmap_sjd_ctrl_grob
+j = res_signatures[[name]]$plot_list$corr_circle_plot
+k = res_signatures[[name]]$plot_list$corr_heatmap
+l = res_signatures[[name]]$plot_list$arrow_plot
+
+comb <- a/b/c/d/e/f/g/h/i/j/k/l+
+    plot_layout(ncol = 3, guides = "collect") +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/",name,"_signature_detail.pdf"),width = 40,height = 30, limitsize = FALSE)
+}
+
+lapply(names(signatures), plot_signature_detail )
+
+
+
+```
+
+## 4.3. CD40-IFN class
+
+```{r CD40-IFN classification}
+
+setnames(x = res_signatures$cd40$scores,old = "id",new = "SAMPLING_OMIC_NUMBER")
+setnames(x = res_signatures$ifn$scores,old = "id",new = "SAMPLING_OMIC_NUMBER")
+setnames(x = res_signatures$il2$scores,old = "id",new = "SAMPLING_OMIC_NUMBER")
+
+
+scores_all_with_diff =  compute_signature_differences(
+  scores_cd40 = res_signatures$cd40$scores,
+  scores_ifn = res_signatures$ifn$scores,
+  scores_il2 = res_signatures$il2$scores,metrics = "rcca")
+  
+
+scores_all_with_diff[PS_brutes, diag:=i.diag, on="SAMPLING_OMIC_NUMBER"]
+scores_all_with_diff[diag=="Control", diag:="CTRL"]
+
+library(data.table)
+library(pROC)
+
+quantile = 0.95
+
+t_ifn  <- quantile(scores_all_with_diff[diag=="CTRL"]$rcca_IFN_scaled_cd40_ifn, quantile, na.rm=TRUE)
+t_cd40 <- quantile(scores_all_with_diff[diag=="CTRL"]$rcca_CD40_scaled_cd40_ifn, quantile, na.rm=TRUE)
+thresholds = data.table(rcca=c("rcca_IFN_scaled_cd40_ifn","rcca_CD40_scaled_cd40_ifn"),threshold=c(t_ifn,t_cd40))
+
+scores_all_with_diff[, class :=
+         fifelse(rcca_CD40_scaled_cd40_ifn <  t_cd40 &
+                   rcca_IFN_scaled_cd40_ifn  <  t_ifn,  "CD40-/IFN-",
+                 fifelse(rcca_CD40_scaled_cd40_ifn >= t_cd40 &
+                           rcca_IFN_scaled_cd40_ifn  <  t_ifn,  "CD40+/IFN-",
+                         fifelse(rcca_CD40_scaled_cd40_ifn >= t_cd40 &
+                                   rcca_IFN_scaled_cd40_ifn  >= t_ifn,  "CD40+/IFN+",
+                                 "CD40-/IFN+")))]
+
+scores_all_with_diff[, class := factor(class,
+                         levels=c("CD40-/IFN-",
+                                  "CD40+/IFN-",
+                                  "CD40-/IFN+",
+                                  "CD40+/IFN+"))]
+
+
+
+saveRDS(scores_all_with_diff,paste0(folder_for_res,"signatures/scores_all_with_diff.rds"))
+
+library(ggplot2)
+
+dt_long <- melt(scores_all_with_diff,
+                id.vars = "diag",
+                measure.vars = c("rcca_IFN_scaled_cd40_ifn", "rcca_CD40_scaled_cd40_ifn"),
+                variable.name = "rcca",
+                value.name = "score")
+
+
+density_plot = ggplot(dt_long, aes(x = score, fill = diag)) +
+  geom_density(alpha = 0.4) +
+  geom_vline(
+    data = thresholds,
+    aes(xintercept = threshold),
+    linetype = "dashed",
+    linewidth = 1,
+    color = "black"
+  ) +
+  scale_fill_manual(values = c(
+    "SjD" = "blue",
+    "CTRL" = "green"
+  )) +
+  facet_wrap(
+  ~rcca,
+  scales = "free",
+  labeller = labeller(rcca = c(
+    "rcca_CD40_scaled_cd40_ifn" = "rCCA_CD40 (scaled)",
+    "rcca_IFN_scaled_cd40_ifn"  = "rCCA_IFN (scaled)"
+  ))
+)+
+  theme_classic() +
+  labs(
+    x = "Score",
+    y = "Density",
+    fill = "Diagnosis"
+  )
+
+
+quadrant_plot = ggplot(scores_all_with_diff,
+       aes(x=rcca_CD40_scaled_cd40_ifn,
+           y=rcca_IFN_scaled_cd40_ifn,
+           color=class)) +
+  geom_point(size=2, alpha=0.8) +
+  geom_vline(xintercept=t_cd40, linetype="dashed") +
+  geom_hline(yintercept=t_ifn,  linetype="dashed") +
+  theme_bw() +
+  labs(x="CD40 (scaled)",
+       y="IFN (scaled)",
+       title="") 
+
+quadrant_plot_diag = ggplot(scores_all_with_diff,
+       aes(x=rcca_CD40_scaled_cd40_ifn,
+           y=rcca_IFN_scaled_cd40_ifn,
+           color=diag)) +
+  geom_point(size=2, alpha=0.8) +
+  scale_colour_manual(values=c("SjD"="blue","CTRL"="green"))+
+  geom_vline(xintercept=t_cd40, linetype="dashed") +
+  geom_hline(yintercept=t_ifn,  linetype="dashed") +
+  theme_bw() +
+  labs(x="CD40 (scaled)",
+       y="IFN (scaled)",
+       title="",
+       color = "Diagnosis")
+
+
+
+comb <-  density_plot / quadrant_plot_diag / quadrant_plot +
+    plot_layout(ncol = 3) +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/cd40_ifn_class.pdf"),width = 20,height = 6)
+
+
+
+```
+
+## 4.4. Signature plots
+
+```{r signature figure on embeddings }
+
+library(ggplot2)
+library(patchwork)
+emb_res=readRDS(paste0(folder_for_res,"embeddings/","embeddings_mgedo.rds")) 
+embeddings_dt = cbind(emb_res$embedding_list$umap_2d, emb_res$embedding_list$phate_2d)
+embeddings_dt <- embeddings_dt[, !duplicated(names(embeddings_dt)), with = FALSE]
+
+embeddings_dt[scores_all_with_diff, rcca_IFN:=i.rcca_IFN, on="SAMPLING_OMIC_NUMBER"]
+embeddings_dt[scores_all_with_diff, rcca_CD40:=i.rcca_CD40, on="SAMPLING_OMIC_NUMBER"]
+embeddings_dt[scores_all_with_diff, rcca_IL2:=i.rcca_IL2, on="SAMPLING_OMIC_NUMBER"]
+embeddings_dt[scores_all_with_diff, ratio_rcca_cd40_ifn:=i.ratio_rcca_cd40_ifn, on="SAMPLING_OMIC_NUMBER"]
+embeddings_dt[scores_all_with_diff, class:=i.class, on="SAMPLING_OMIC_NUMBER"]
+saveRDS(embeddings_dt, paste0(folder_for_res,"embeddings/","embeddings_dt.rds"))
+
+theme_cadre <- theme(
+    panel.border = element_rect(
+      colour = "black",
+      fill   = NA,
+      linewidth = 0.6
+    ),
+    plot.background = element_rect(
+      colour = NA,
+      fill   = NA
+    ),
+    panel.spacing = unit(2, "pt")
+  )
+
+umap_diag = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = factor(diag))) +
+                     geom_point(size=1.5, alpha=0.5) +
+                     theme_minimal()+
+                     labs(color="DIAGNOSIS")+
+                     scale_color_manual(values = c("Control"="green","SjD"="blue"))+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank())+
+    theme_cadre
+
+phate_diag = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = factor(diag))) +
+                     geom_point(size=1.5, alpha=0.5) +
+                     theme_minimal()+
+                     labs(color="DIAGNOSIS")+
+                     scale_color_manual(values = c("Control"="green","SjD"="blue"))+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank())+
+    theme_cadre
+
+
+
+ umap_ifn = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = rcca_IFN)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IFN")+theme_cadre
+ 
+  phate_ifn = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = rcca_IFN)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IFN")+theme_cadre
+
+ 
+
+
+  umap_kirou = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = EXPRESSION_PRECISESADS_IFN)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IFN Kirou Score")+theme_cadre
+ 
+  phate_kirou = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = EXPRESSION_PRECISESADS_IFN)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IFN Kirou Score")+theme_cadre
+  
+  
+  
+  
+  umap_cd40 = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = rcca_CD40)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="CD40")+theme_cadre
+ 
+  phate_cd40 = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = rcca_CD40)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="CD40")+theme_cadre
+  
+  
+  umap_il2 = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = rcca_IL2)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                      scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IL2")+theme_cadre
+ 
+  phate_il2 = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = rcca_IL2)) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="IL2")+theme_cadre
+  
+  
+  umap_cd40_ifn_diff = ggplot(embeddings_dt, aes(x = UMAP1, y = UMAP2, color = ratio_rcca_cd40_ifn      )) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="CD40-IFN")+theme_cadre
+ 
+  phate_cd40_ifn_diff = ggplot(embeddings_dt, aes(x = PHATE1, y = PHATE2, color = ratio_rcca_cd40_ifn      )) +
+                      geom_point(size = 1.5, alpha = 0.7) +
+                       scale_color_viridis_c(option = "H") +
+                      theme_minimal()+
+                      labs(color="CD40-IFN")+theme_cadre
+
+
+cols <- c(
+  "CD40-/IFN-" = "#F8766D",
+  "CD40+/IFN-" = "#7CAE00",
+  "CD40-/IFN+" = "#00BFC4",
+  "CD40+/IFN+" = "#C77CFF"
+)
+
+umap_class <- ggplot(embeddings_dt,
+                     aes(x = UMAP1, y = UMAP2)) +
+
+  stat_density_2d(
+    aes(fill = class),
+    geom = "polygon",
+    alpha = 0.15,
+    # contour_var = "ndensity",
+    bins = 4,
+    adjust = 3,
+    color = NA
+  ) +
+
+  geom_point(
+    aes(color = class),
+    size = 1.5,
+    alpha = 0.5
+  ) +
+
+  scale_color_manual(values = cols) +
+  scale_fill_manual(values = cols) +
+
+  theme_classic() +
+  labs(color = "CD40-IFN CLASS", fill = "CD40-IFN CLASS") +
+  theme(axis.text = element_blank()) +
+  theme_cadre
+
+
+phate_class <- ggplot(embeddings_dt,
+                     aes(x = PHATE1, y = PHATE2)) +
+
+  stat_density_2d(
+    aes(fill = class),
+    geom = "polygon",
+    alpha = 0.15,
+    # contour_var = "ndensity",
+    bins = 4,
+    adjust = 3,
+    color = NA
+  ) +
+
+  geom_point(
+    aes(color = class),
+    size = 1.5,
+    alpha = 0.5
+  ) +
+
+  scale_color_manual(values = cols) +
+  scale_fill_manual(values = cols) +
+
+  theme_classic() +
+  labs(color = "CD40-IFN CLASS", fill = "CD40-IFN CLASS") +
+  theme(axis.text = element_blank()) +
+  theme_cadre
+
+
+a = phate_diag
+b = umap_diag
+c = phate_ifn
+d = umap_ifn
+e = phate_kirou
+f = umap_kirou
+g = phate_cd40
+h = umap_cd40
+i = phate_il2
+j = umap_il2
+k = phate_cd40_ifn_diff
+l = umap_cd40_ifn_diff
+m = phate_class
+n = umap_class
+
+
+
+comb <- a/b/c/d/g/h/i/j/k/l/m/n+
+    plot_layout(ncol = 2) +
+    plot_annotation(tag_levels = "a") &
+    theme(
+      plot.tag          = element_text(size = 20, face = "bold"),
+      plot.tag.position = c(0, 1)
+    )
+
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/signatures_on_embeddings.pdf"),width = 15,height = 25)
+
+
+```
+
+```         
+```
+
+```{r correlation plot for published signatures}
+
+for(i in c(cd40_gene_sets, il2_gene_sets)){
+  print(i)
+  scores_published_signature = res_pub_signatures[[i]]$scores
+  
+  omic_id = scores_published_signature$id
+  colnames(scores_published_signature) = paste0(i,"_",colnames(scores_published_signature))
+  scores_published_signature$SAMPLING_OMIC_NUMBER = omic_id
+  
+  scores_all_with_diff=merge(scores_all_with_diff, scores_published_signature, by="SAMPLING_OMIC_NUMBER")
+}
+saveRDS(scores_all_with_diff,paste0(folder_for_res,"signatures/scores_all_with_diff.rds"))
+
+
+scores_all_with_diff[PS_brutes, IFN_Kirou :=EXPRESSION_PRECISESADS_IFN, on="SAMPLING_OMIC_NUMBER"]
+
+manual_signature = "rcca_IFN"
+pub_signature = "IFN_Kirou"
+p_ifn=plot_corr_signature(manual_signature,pub_signature)
+
+
+cd40_corr_plots = list()
+for(s in cd40_gene_sets){
+  manual_signature = "rcca_CD40"
+  pub_signature = paste0(s,"_rcca")
+  plot=plot_corr_signature(manual_signature,pub_signature)
+  cd40_corr_plots=list.append(cd40_corr_plots, plot)
+  }
+names(cd40_corr_plots) = cd40_gene_sets
+
+
+il2_corr_plots = list()
+for(s in il2_gene_sets){
+  manual_signature = "rcca_IL2"
+  pub_signature = paste0(s,"_rcca")
+  plot=plot_corr_signature(manual_signature,pub_signature)
+  il2_corr_plots=list.append(il2_corr_plots, plot)
+  }
+names(il2_corr_plots) = il2_gene_sets
+
+all_plots <- c(list(p_ifn), cd40_corr_plots, il2_corr_plots)
+
+comb <- wrap_plots(all_plots, ncol = 4) +
+  plot_annotation(tag_levels = "a") &
+  theme(
+    plot.tag = element_text(size = 16, face = "bold"),
+    plot.tag.position = c(0, 1)
+  )
+
+ggsave(plot = comb,filename=paste0(folder_for_res,"figures/comp_pub_signatures.pdf"),width = 20,height = 20)
+
+
+```
+
+## 
+
+# 5. Clinical variables
+
+```{r clinical data preprocessing}
+library(ggplot2)
+library(data.table)
+library(gtsummary)
+library(dplyr)
+library(purrr)
+library(cardx)
+library(patchwork)
+library(tidyr)
+library(gt)
+library(tidyverse)
+library(ggpubr)
+
+
+PS_brutes <- readRDS("/shared/projects/toposads/input/PS_brutes.rds")
+dt = copy(PS_brutes)
+
+#Renaming of columns
+names(dt) <- gsub("\\[|\\]", "", names(dt))
+names(dt) <- gsub("\\(|\\)", "", names(dt))
+names(dt) <- gsub(x = names(dt), pattern = ",", replacement = "_")
+names(dt) <- gsub(x = names(dt), pattern = ",", replacement = "_")
+names(dt) <- gsub(x = names(dt), pattern = "'", replacement = "_")
+names(dt) <- gsub(x = names(dt), pattern = "/", replacement = "_")
+names(dt) <- gsub(x = names(dt), pattern = "-", replacement = "_")
+
+#Selection of clinical variables
+variables=colnames(dt)
+var_ac = variables[grepl("^ANTIBODY", variables)]
+var_auto_ac = variables[grepl("^AUTOANTIBODY", variables)]
+var_ac = c(var_ac, var_auto_ac)
+class = var_ac[grepl("CLASS", var_ac)]
+var_flow <- variables[grep("^P(?!LASMA)", variables, perl = TRUE)]
+var_cyt=variables[grepl("^LUMINEX", variables)]
+var_hla=variables[grepl("ALLELES_HLA", variables)]
+var_indels=variables[grepl("INDELS", variables)]
+var_plasma=variables[grepl("^PLASMA", variables)]
+var_urine=variables[grepl("^URINE", variables)]
+
+clinical_vars = variables[!variables %in% c(var_ac, var_auto_ac, var_flow, var_cyt, var_hla, var_indels, var_plasma, var_urine)]
+var_to_study = c(clinical_vars, class)
+
+#Class dates and Ac
+
+dt[,SAMPLING_DATE_OF_SAMPLING:=as.Date(SAMPLING_DATE_OF_SAMPLING)]
+dt[,SJS_DATE_OF_SAMPLING:=as.Date(SJS_DATE_OF_SAMPLING)]
+dt[, (class) := lapply(.SD, FUN = as.factor), .SDcols = class]
+cols_to_keep = c(var_to_study,"SAMPLING_OMIC_NUMBER") 
+dt=dt[, ..cols_to_keep, with=F]
+
+#Unknown -> NA
+cols_char_factor <- unique(names(dt)[sapply(dt, function(x) is.character(x) || is.factor(x))])
+dt[, (cols_char_factor) := 
+     lapply(.SD, function(x) {
+       x[x == "Unknown"] <- NA
+       return(x)
+     }),
+   .SDcols = cols_char_factor]
+
+#Variable types 
+low_mod_high = names(dt)[sapply(dt, function(x)
+  (is.character(x) || is.factor(x)) && any(x %in% c("Low","Moderate","High"), na.rm = TRUE)
+)]
+
+yes_no = names(dt)[sapply(dt, function(x)
+  (is.character(x) || is.factor(x)) && any(x %in% c("Yes"), na.rm = TRUE)
+)] 
+
+
+
+#CD40-IFN class
+
+scores = readRDS(paste0(folder_for_res,"signatures/scores_all_with_diff.rds"))
+dt[scores, cd40_ifn_class:=i.class, on="SAMPLING_OMIC_NUMBER"]
+omic_id = dt$SAMPLING_OMIC_NUMBER
+dt=dt[,SAMPLING_OMIC_NUMBER := NULL]
+dt <- dt %>%
+  dplyr::select(-SAMPLING_OMIC_NUMBER)
+
+dt[diag=="CTRL", cd40_ifn_class:="CTRL"]
+
+dt_for_stats = dt[diag=="SjD"]
+dt_for_stats$diag = NULL
+dt_for_stats[,cd40_ifn_class:=factor(cd40_ifn_class, levels=c("CD40-/IFN-", "CD40+/IFN-", "CD40-/IFN+", "CD40+/IFN+"))]
+
+dt[,cd40_ifn_class:=factor(cd40_ifn_class, levels=c("CTRL","CD40-/IFN-", "CD40+/IFN-", "CD40-/IFN+", "CD40+/IFN+"))]
+
+
+
+#Filtering one value variables
+cols_to_remove <- names(dt_for_stats)[
+  sapply(dt_for_stats, function(x) {
+    # cas 1 : colonne entièrement NA
+    if (all(is.na(x))) return(TRUE)
+    
+    # cas 2 : une seule valeur observée (en ignorant NA)
+    unique_vals <- unique(na.omit(x))
+    if (length(unique_vals) <= 1) return(TRUE)
+    
+    FALSE
+  })
+]
+
+sup_cols_to_remove = c("EXPRESSION_IFN_ALPHA_KIROU",
+                       "EXPRESSION_IFN_GAMMA_KIROU",
+                       "EXPRESSION_M1_2_BODEWES"  ,
+                       "EXPRESSION_M3_4_BODEWES",
+                       "EXPRESSION_M5_12_BODEWES",  
+                       "EXPRESSION_PRECISESADS_IFN",
+                       "sp_cl_35d_5_cl","cluster",
+                       "sp_cl_35d_5_cld","sp_cl_35d_5_clb",
+                       "clusterc","sp_cl_35d_5_clc","clusterd",
+                       "clusterb","SAMPLING_DISEASE_DURATION_YEARS",
+                       "CD40_gene","CD40_signature","CD40_signature_pond",
+                       "IL2_mzs_x","ifn_mzs_x","CD40LG_gene","CD40_mzs_x",
+                       "IL2_signature_pond","ifn_signature_pond",
+                       "SAMPLING_DATE_OF_SAMPLING", "SJS_DATE_OF_SAMPLING",
+                       "SJS_CENTER","SKIN_CUTANEOUS_LUPUS", "SAMPLING_CENTER",
+                       "DEMOGRAPHY_YEAR_OF_BIRTH", "SJS_ONSET_YEAR",
+                       "SJS_DATE_OF_BIRTH", "SAMPLING_PATIENT_ID","id",
+                       "sample_to_remove","...545","CONSENT_INFORMED_CONSENT_DATE.1",
+                       "DIAGNOSIS_ARM_CODE","DIAGNOSIS_ARM","DIAGNOSIS_ONSET_DATE",
+                       "control","DEMOGRAPHY_RACE", "AUTOANTIBODY_ENA_CLASS","COMORBIDITY_ASTHMA","COMORBIDITY_COELIAC_DISEASE","COMORBIDITY_DIABETES","COMORBIDITY_OBESITY_BMI_SUP_30","COMORBIDITY_STIPSIS_CONSTIPATION","CONSENT_CS_PHASE","GASTRO_OESOPHAGEAL_DISMOTILITY","HEART_PERICARDITIS","HEART_SYSTEMIC_HYPERTENSION","LUNG_FUNCTIONAL_VENTILATORY_RESTRICTION","LUNG_PULMONARY_FIBROSIS","MEDICATION_AVERAGE_WEEKLY_DOSE","MEDICATION_CURRENT_USE_OF_SYSTEMIC_ANTIBIOTICS","SKIN_CUTANEOUS_LUPUS__CHRONIC","AUTOANTIBODY_DNA_CLASS","AUTOANTIBODY_SSA_CLASS","AUTOANTIBODY_U1_RNP_CLASS","COMORBIDITY_ABDOMINAL_PAIN","COMORBIDITY_CORONARY_ARTERY_DISEASE","COMORBIDITY_DIARRHEA_RECURRENT","COMORBIDITY_HISTORY_OF_CANCER","COMORBIDITY_PRIMARY_BILIARY_CIRRHOSIS","COMORBIDITY_THYROIDITIS","COMORBIDITY_STATIN_USE","GASTRO_HISTORY_OF_ESOPHAGEAL_REFLUX_DISEASE","HEART_ARRYTHMIAS","HEART_PULMONARY_HYPERTENSION_ON_ECHO","HEART_VALVE_LESIONS", "LUNG_BASILAR_CRACKLES","LUNG_PLEURAL_EFFUSIONS", "LUNG_WORSENING_LUNG_FUNCTION","SKIN_CUTANEOUS_LUPUS__ACTIVE","VASCULAR_HISTORY_OF_RECURRENT_MISCARRIAGE_OR_PREGNANCY_COMPLICATIONS","SJS_ANTISSAORSSB")
+
+
+cols_to_remove=unique(c(cols_to_remove,sup_cols_to_remove))
+dt_for_stats[, (cols_to_remove) := NULL]
+# str(dt_for_stats)
+
+
+```
+
+```{r gt_summary}
+
+
+set.seed(123)
+tbl <- dt_for_stats %>%
+  tbl_summary(
+    by = cd40_ifn_class,
+    statistic = all_continuous() ~ "{mean} ({sd})",
+    missing = "no"
+  ) %>%
+  add_p(
+    test = list(
+      all_continuous() ~ "kruskal.test",
+      all_categorical() ~ fisher_sim_test
+    ),
+    pvalue_fun = function(x) style_pvalue(x, digits = 3)
+  )
+
+
+# adjusting p-values
+tbl_corrected <- tbl %>%
+  modify_table_body(
+    ~ .x %>%
+      mutate(p.value.adj =
+               p.adjust(as.numeric(p.value), method = "BH"))   # correction BH (FDR)
+  ) %>%
+  modify_header(p.value.adj ~ "**p-value (corrigée BH)**")
+
+gt_tbl_corrected=as_gt(tbl_corrected)
+gtsave(gt_tbl_corrected, filename = paste0(folder_for_res, "clinics/gt_sum_clin_vars.tex"))
+
+
+```
+
+```{r significant}
+stats = data.table(tbl_corrected$table_body)
+saveRDS(stats, paste0(folder_for_res,"clinics/gt_summarry_stats.rds"))
+
+stats_significant = stats[p.value.adj < 0.05]
+
+variables_significant = unique(stats_significant$variable)
+variables_significant
+
+
+old = c(
+  "KIDNEY_ABNORMAL_LIPID_PROFILE",
+  "LAB_REDUCED_WHITE_BLOOD_CELL_COUNT",
+  "MEDICATION_CURRENT_USE_OF_IMMUNOSOPPRESSANTS",
+  "MEDICATION_CURRENT_USE_OF_STEROIDS",
+  "SYMPTOM_HYPERGAMMABULINEMIA",
+  "SJS_BIOLOGICAL",
+  "SJS_HEMATOLOGICAL",
+  "AUTOANTIBODY_RF_CLASS",
+  "AUTOANTIBODY_SSA_52_CLASS",
+  "AUTOANTIBODY_SSA_60_CLASS",
+  "AUTOANTIBODY_SSB_CLASS")
+new=c(
+    "Abnormal_Lipid_Profil",
+  "Leucopenia",
+  "Current_use_of_Immunosuppressants",
+  "Current_use_of_Steroids",
+  "Hypergammaglobulinemia",
+  "ESSDAI_Biological",
+  "ESSDAI_Hematological",
+  "anti_RF_autoantibody",
+  "anti_SSA52_autoantibody",
+  "anti_SSA60_autoantibody",
+  "anti_SSB_autoantibody")
+
+
+
+```
+
+```{r plot_signif_vars}
+
+cols_to_keep = c(variables_significant, "cd40_ifn_class","diag")
+dt_signif = dt[,..cols_to_keep, with=F]
+setnames(dt_signif,old = old, new = new)
+
+class = new[grepl("autoantibody", new)]
+
+figure_finale <- plot_significant_vars(
+  dt = dt_signif,
+  vars = new,
+  cluster_col = "cd40_ifn_class",
+  color_col = "diag",
+  class=class,
+  ncol=3
+)
+
+
+# ggsave(plot = figure_finale, filename = paste0(folder_for_res, "figures/signif_cd40_ifn_class_signif.pdf"), height = 10, width = 30, limitsize = FALSE)
+
+```
+
+```{r plot signif vars with ic}
+
+figure_finale_ic <- plot_significant_vars_2(
+  dt = dt_signif,
+  vars = new,
+  cluster_col = "cd40_ifn_class",
+  color_col = "diag",
+  class=class,
+  ncol=3
+)
+
+
+ggsave(plot = figure_finale_ic, filename = paste0(folder_for_res, "figures/signif_cd40_ifn_class_signif_ic.pdf"), height = 20, width = 30, limitsize = FALSE)
+
+
+```
+
+```{r plot diag criteria and essdai}
+
+diag_crit <- c("SJS_DRYEYES",
+               "SJS_DRYMOUTH",
+               "SJS_FOCUSSCORESUP1",
+               "AUTOANTIBODY_SSA_CLASS",
+               "SJS_ROSEBENGALEOROSSPOSITIVE",
+               "SJS_SCHIRMERLOWER5",
+               "SJS_FLOWLOWER1_5","SJS_ESSDAI")
+
+new = c("Dry_Eyes","Dry_Mouth","Focus_Score_sup_1", "anti_SSA_autoantibody","Rose_Bengal_or_Ocular_Staining_Score_Positive","Schirmer_inf_5","Flow_inf_0.1","ESSDAI")
+
+cols_to_keep = c(diag_crit, "cd40_ifn_class","diag")
+dt_diag_crit = dt[,..cols_to_keep, with=F]
+setnames(x = dt_diag_crit,old = diag_crit,new = new)
+
+figure_finale_diag_crit <- plot_significant_vars(
+  dt = dt_diag_crit,
+  vars = new,
+  cluster_col = "cd40_ifn_class",
+  color_col = "diag",
+  class=c("anti_SSA_autoantibody"),
+  ncol=3
+)
+
+# ggsave(plot = figure_finale_diag_crit, filename = paste0(folder_for_res, "figures/signif_cd40_ifn_class_diag_crit.pdf"), height = 10, width = 30, limitsize = FALSE)
+
+```
+
+```{r combined plot clinical}
+
+library(patchwork)
+
+figure_combined <- wrap_elements(figure_finale) /
+                   wrap_elements(figure_finale_diag_crit) +
+  plot_annotation(tag_levels = "a")+
+   plot_layout(heights = c(3, 2))
+
+ggsave(plot = figure_combined, filename = paste0(folder_for_res, "figures/signif_cd40_ifn_class_combined.pdf"), height = 20, width = 25, limitsize = FALSE)
+
+
+
+```
+
+```{r clinical on phate embedding}
+
+dt$SAMPLING_OMIC_NUMBER = omic_id
+phate = emb_res$embedding_list$phate_2d[,.(PHATE1,PHATE2,SAMPLING_OMIC_NUMBER)]
+
+phate = merge(phate,dt,"SAMPLING_OMIC_NUMBER")
+
+old = c(
+  "KIDNEY_ABNORMAL_LIPID_PROFILE",
+  "LAB_REDUCED_WHITE_BLOOD_CELL_COUNT",
+  "MEDICATION_CURRENT_USE_OF_IMMUNOSOPPRESSANTS",
+  "MEDICATION_CURRENT_USE_OF_STEROIDS",
+  "SYMPTOM_HYPERGAMMABULINEMIA",
+  "SJS_BIOLOGICAL",
+  "SJS_HEMATOLOGICAL",
+  "AUTOANTIBODY_RF_CLASS",
+  "AUTOANTIBODY_SSA_52_CLASS",
+  "AUTOANTIBODY_SSA_60_CLASS",
+  "AUTOANTIBODY_SSB_CLASS")
+new=c(
+    "Abnormal_Lipid_Profil",
+  "Leucopenia",
+  "Current_use_of_Immunosuppressants",
+  "Current_use_of_Steroids",
+  "Hypergammaglobulinemia",
+  "ESSDAI_Biological",
+  "ESSDAI_Hematological",
+  "anti_RF_autoantibody",
+  "anti_SSA52_autoantibody",
+  "anti_SSA60_autoantibody",
+  "anti_SSB_autoantibody")
+
+
+setnames(phate,old=old, new=new)
+
+plot_signif=plot_significant_vars_point(dt = phate,vars = new,class=c("anti_RF_autoantibody",
+  "anti_SSA52_autoantibody",
+  "anti_SSA60_autoantibody",
+  "anti_SSB_autoantibody"),ncol=3)
+
+diag_crit <- c("SJS_DRYEYES",
+               "SJS_DRYMOUTH",
+               "SJS_FOCUSSCORESUP1",
+               "AUTOANTIBODY_SSA_CLASS",
+               "SJS_ROSEBENGALEOROSSPOSITIVE",
+               "SJS_SCHIRMERLOWER5",
+               "SJS_FLOWLOWER1_5","SJS_ESSDAI")
+
+new = c("Dry_Eyes","Dry_Mouth","Focus_Score_sup_1", "anti_SSA_autoantibody","Rose_Bengal_or_Ocular_Staining_Score_Positive","Schirmer_inf_5","Flow_inf_5","ESSDAI")
+
+
+setnames(x = phate,old = diag_crit,new = new)
+
+plot_diag_crit=plot_significant_vars_point(dt = phate,vars = new,class="anti_SSA_autoantibody",ncol = 3)
+
+
+library(patchwork)
+
+figure_combined_point <- wrap_elements(plot_signif) /
+                   wrap_elements(plot_diag_crit) +
+  plot_annotation(tag_levels = "a")+
+   plot_layout(heights = c(3, 2))
+
+ggsave(plot = figure_combined_point, filename = paste0(folder_for_res, "figures/signif_cd40_ifn_class_combined_point.pdf"), height = 25, width = 20, limitsize = FALSE)
+
+
+
+```
+
+# 6. Session information, Packages and versions
+
+```{r session info}
+
+devtools::session_info()
+
+```

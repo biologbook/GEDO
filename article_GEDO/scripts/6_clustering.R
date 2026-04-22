@@ -2,7 +2,7 @@
 # 1. Package and functions ------------------------------------------------
 
 
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -21,7 +21,7 @@ sapply(packages_list, require, character.only = TRUE)
 
 
 
-folder_for_res = "/home/clem/GEDO/results/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/"
 num_cores=5
 
 
@@ -32,7 +32,7 @@ run_all_module_matrices = function(rna_seq_data, folder_for_res){
   
   
   message("Loading data")
-  folder_to_data ="/home/clem/GEDO/data/"
+  folder_to_data ="/home/clem/GEDO/article_GEDO/data/"
   
   PS_brutes <- readRDS(paste0(folder_to_data,"PS_brutes.rds"))
   rna_seq_data = readRDS(paste0(folder_to_data, "bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds"))

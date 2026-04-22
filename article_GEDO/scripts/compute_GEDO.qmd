@@ -20,7 +20,7 @@ knitr::opts_chunk$set(fig.path = "../docs/figures/tutorial_")
 
 ```{r packages and functions}
 
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -38,8 +38,8 @@ install_and_load(packages_list)
 use_python("/usr/bin/python3", required = TRUE)
 print(py_config())
 
-folder_for_res = "/home/clem/GEDO/results/"
-folder_to_data ="/home/clem/GEDO/data/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/"
+folder_to_data ="/home/clem/GEDO/article_GEDO/data/"
 
 
 ```

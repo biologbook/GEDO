@@ -2,10 +2,10 @@
 # 1.Packages -------------------------------------------------------------
 
 
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
-source("/home/clem/GEDO/scripts/4_functions_reviewing_TCGA.R")
+source("/home/clem/GEDO/article_GEDO/scripts/4_functions_reviewing_TCGA.R")
 
 
 detach_all_packages()
@@ -58,7 +58,7 @@ if(library=="oncogenic"){
 }
 
 
-folder_for_res = "/home/clem/GEDO/results/oncogenic/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/oncogenic/"
 
 num_cores=5
 
@@ -155,11 +155,11 @@ return(vst_dt)
 }
 
 
-if(file.exists("/home/clem/GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")){
-  rna_seq_data = readRDS("/home/clem/GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")
+if(file.exists("/home/clem/GEDO/article_GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")){
+  rna_seq_data = readRDS("/home/clem/GEDO/article_GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")
 }else{
   rna_seq_data = get_tcga_rna_seq_data()
-  saveRDS(rna_seq_data,"/home/clem/GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")
+  saveRDS(rna_seq_data,"/home/clem/GEDO/article_GEDO/data/TCGA_BRCA_RNAseq_STARvst.rds")
 }
 
 #Remove version of ensembl codes in TCGA data
@@ -185,7 +185,7 @@ colnames(pam50)[1] = "ID"
 ids = rna_seq_data$ID
 rna_seq_data = rna_seq_data[, -1]
 
-coldata <- data.table(readRDS("/home/clem/GEDO/data/coldata.rds"))
+coldata <- data.table(readRDS("/home/clem/GEDO/article_GEDO/data/coldata.rds"))
 setnames(x = coldata,old="patient",new="ID")
 
 
@@ -195,7 +195,7 @@ setnames(x = coldata,old="patient",new="ID")
 
 #Diag vector : 
 
-coldata <- data.table(readRDS("/home/clem/GEDO/data/coldata.rds"))
+coldata <- data.table(readRDS("/home/clem/GEDO/article_GEDO/data/coldata.rds"))
 #Comme groupe ctrl, on va prendre les definition=="Solid Tissue Normal" (sein sain). n=113.
 #Et on va les comparer aux cancers solides (toujours du sein). et on va voir si on retrouve les sous-groupes
 setnames(x = coldata, old="patient",new="ID")

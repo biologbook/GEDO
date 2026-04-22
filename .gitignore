@@ -4,7 +4,8 @@
 .Ruserdata
 
 /GEDO.Rproj
-/data/**
-/results/**
-/R/GEDO.R
-/scripts/script_to_get_tutorial.R
+/article_GEDO/data/**
+/article_GEDO/results/**
+/R/GEDO/GEDO.R
+/article_GEDO/scripts/script_to_get_tutorial.R
+/R/mGEDO/mGEDO.R

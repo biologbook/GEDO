@@ -1,7 +1,7 @@
 
 # 1. Packages and scripts -------------------------------------------------
 
-folder_script_to_source = "/home/clem/GEDO/R/"
+folder_script_to_source = "/home/clem/GEDO/R/GEDO/"
 source(file = paste0(folder_script_to_source,"GEDO.R"))
 source(file = paste0(folder_script_to_source,"functions_article.R"))
 
@@ -20,8 +20,8 @@ install_and_load(packages_list)
 
 # 2. Data -----------------------------------------------------------------
 
-folder_for_res = "/home/clem/GEDO/results/"
-folder_to_data ="/home/clem/GEDO/data/"
+folder_for_res = "/home/clem/GEDO/article_GEDO/results/"
+folder_to_data ="/home/clem/GEDO/article_GEDO/data/"
 
 PS_brutes <- readRDS(paste0(folder_to_data,"PS_brutes.rds"))
 rna_seq_data = readRDS(paste0(folder_to_data, "bulk_rna_seq_final_data_batch_corrected_high_cv_scaled.rds"))
