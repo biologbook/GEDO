@@ -36,44 +36,134 @@ detach_all_packages <- function() {
 
 
 
-heatmap.ifn=function(gedo_obj, title="", IFN_score, legend, annotation_legend){
+heatmap.ifn=function(gedo_obj, title="", IFN_score, legend=T, annotation_legend=T){
   #1. preparation of data
   diag = gedo_obj$diag
   module_matrix = as.matrix(gedo_obj$module_matrix)
   id=1:nrow(module_matrix)
   module_matrix=t(module_matrix)
   colnames(module_matrix)=id
-  
+
   #2. Legends
-  annotation_col=data.frame(diag=diag, IFN_score=IFN_score)
-  rownames(annotation_col)=id
-  
+
+
+  #
+  # IFN_score[!is.finite(IFN_score)] = NA
+  # annotation_col=data.frame(diag=diag, IFN_score=IFN_score)
+  # rownames(annotation_col)=id
+  #
   reference_group=as.character(gedo_obj$config$reference_group)
   another_group = as.character(unique(diag[!diag %in% gedo_obj$config$reference_group]))
-  
+  #
+  # overlap_colors <- list(
+  #   diag = setNames(c("green", "blue"), c(reference_group, another_group)),
+  #   IFN_score=c("blue", "white", "red")
+  # )
+
+
+  IFN_score[!is.finite(IFN_score)] <- NA
+
+  annotation_col <- data.frame(diag = diag, IFN_score = IFN_score)
+  rownames(annotation_col) <- colnames(module_matrix)
+
+  # 2) Ne PAS donner de couleurs pour IFN_score (numérique)
   overlap_colors <- list(
-    diag = setNames(c("green", "blue"), c(reference_group, another_group)),
-    IFN_score=c("blue", "white", "red")
+    diag = setNames(c("green", "blue"),
+                    c(reference_group, another_group))
   )
-  
+
+  # IFN_score : ne pas donner un simple vecteur non nommé,
+  # mais un dégradé généré par colorRampPalette
+  # overlap_colors$IFN_score <- colorRampPalette(c("blue", "white", "red"))(100)
+
+
+
   #3. Heatmap
   heatmap=pheatmap(
     module_matrix,
-    annotation_col = annotation_col,   
+    annotation_col = annotation_col,
     annotation_colors = overlap_colors,
-    cluster_rows = T,               
-    cluster_cols = T,               
-    show_rownames = FALSE,              
-    show_colnames = FALSE,             
-    scale = "none",                    
+    cluster_rows = T,
+    cluster_cols = T,
+    show_rownames = FALSE,
+    show_colnames = FALSE,
+    scale = "none",
     annotation_names_row=F,
-    main=title,
     annotation_legend=annotation_legend,
     legend=legend
   )
   return(heatmap)
 }
-
+# 
+# 
+# heatmap.ifn_XY=function(gedo_obj, title="", IFN_score, legend=T, annotation_legend=T){
+#   #1. preparation of data
+#   diag = gedo_obj$diag
+#   module_matrix = as.matrix(gedo_obj$module_matrix)
+#   cols= colnames(module_matrix)
+#   
+#   id=1:nrow(module_matrix)
+#   module_matrix=t(module_matrix)
+#   colnames(module_matrix)=id
+#   
+#   
+# omic = ifelse(test = grepl("^X", cols), yes = "T","M")
+#   
+#   #2. Legends
+#   
+#   
+#   # 
+#   # IFN_score[!is.finite(IFN_score)] = NA
+#   # annotation_col=data.frame(diag=diag, IFN_score=IFN_score)
+#   # rownames(annotation_col)=id
+#   # 
+#   reference_group=as.character(gedo_obj$config$reference_group)
+#   another_group = as.character(unique(diag[!diag %in% gedo_obj$config$reference_group]))
+#   # 
+#   # overlap_colors <- list(
+#   #   diag = setNames(c("green", "blue"), c(reference_group, another_group)),
+#   #   IFN_score=c("blue", "white", "red")
+#   # )
+#   
+#   
+#   IFN_score[!is.finite(IFN_score)] <- NA
+#   
+#   annotation_col <- data.frame(diag = diag, IFN_score = IFN_score)
+#   rownames(annotation_col) <- colnames(module_matrix)
+#   
+#   annotation_row = data.frame(omic = omic)
+#   rownames(annotation_row)=cols
+#   
+#   # 2) Ne PAS donner de couleurs pour IFN_score (numérique)
+#   overlap_colors <- list(
+#     diag = setNames(c("green", "blue"),
+#                     c(reference_group, another_group))
+#   )
+#   
+#   # IFN_score : ne pas donner un simple vecteur non nommé,
+#   # mais un dégradé généré par colorRampPalette
+#   # overlap_colors$IFN_score <- colorRampPalette(c("blue", "white", "red"))(100)
+#   
+#   
+#   
+#   #3. Heatmap
+#   heatmap=pheatmap(
+#     module_matrix,
+#     annotation_col = annotation_col, 
+#     annotation_row=annotation_row,
+#     annotation_colors = overlap_colors,
+#     cluster_rows = T,               
+#     cluster_cols = T,               
+#     show_rownames = FALSE,              
+#     show_colnames = FALSE,             
+#     scale = "none",                    
+#     annotation_names_row=F,
+#     annotation_legend=annotation_legend,
+#     legend=legend
+#   )
+#   return(heatmap)
+# }
+# 
 
 
 
@@ -100,6 +190,11 @@ compute_pca1=function(data, module_name, diag, reference_group, category, subcat
   genes_to_keep = genes_in_data[genes_in_data %in% genes_in_module]
   if(length(genes_to_keep)<2){stop("no genes in data for this module")}
   data_module = data[,..genes_to_keep, with=F]
+  
+  #Delete columns with only one value
+  cols_to_keep <- names(data_module)[sapply(data_module, function(x) uniqueN(x, na.rm = TRUE) > 1)]
+  data_module <- data_module[, ..cols_to_keep]
+  
   
   
   #2. PCA
@@ -148,13 +243,24 @@ compute_mean_z_score=function(data, module_name, diag, reference_group){
   gr1_sds = apply(gr1, 2, sd)
   
   #3. Z scores
+  # calculate_z_scores <- function(sample, means, sds) {
+  #   (sample - means) / sds
+  # }
   calculate_z_scores <- function(sample, means, sds) {
-    (sample - means) / sds
+    z <- numeric(length(sample))
+    
+    zero_sd <- sds == 0 | is.na(sds)
+    
+    # cas normal
+    z[!zero_sd] <- (sample[!zero_sd] - means[!zero_sd]) / sds[!zero_sd]
+    
+    # cas sd == 0
+    z[zero_sd] <- means[zero_sd]
+    
+    z
   }
   
-  # z_scores <- do.call(rbind, lapply(1:nrow(data_module), function(i) {
-  #   calculate_z_scores(data_module[i, ], gr1_means, gr1_sds)
-  # }))
+  
   
   z_scores <- apply(data_module, 1, calculate_z_scores, means = gr1_means, sds = gr1_sds)
   
@@ -368,7 +474,6 @@ compute_module_matrix = function(method, data, diag, reference_group, category, 
   
   
   
-  
   #5. Return gedo-like object
   module_matrix_obj=list(
     module_matrix = module_matrix,
@@ -434,9 +539,11 @@ compute_auc_modules = function(matrix_list){
     stat_compare_means(
       comparisons = comparisons_list,
       method = "wilcox.test",
+      paired = TRUE,
       label = "p.signif",
-      hide.ns = TRUE
-    )+
+      hide.ns = FALSE,
+      p.adjust.method = "BH"   # ou "bonferroni", "holm", etc.
+    ) +
     labs(x="Module Scoring Method", y="AUC", title="a")+
     coord_flip()
   
@@ -732,6 +839,7 @@ compute_prediction_with_ci <- function(model = "knn", k, k_folds = 10, dt_list, 
   if (model == "rf") {
     plot <- ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
       geom_line(size = 0.5) +
+      scale_colour_viridis_d(option = "viridis")+
       labs(title = "c", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
       theme_minimal() +
       guides(color = "none")
@@ -739,8 +847,10 @@ compute_prediction_with_ci <- function(model = "knn", k, k_folds = 10, dt_list, 
   if (model == "knn") {
     plot <- ggplot(roc_data, aes(x = inv_specificity, y = sensibility, color = Dataset)) +
       geom_line(size = 0.5) +
+      scale_colour_viridis_d(option = "viridis")+
       labs(title = "d", x = "1 - Specificity", y = "Sensitivity", color = "Module Scoring Method") +
       theme_minimal()
+      
   }
   
   # Return summary results and plot
@@ -753,9 +863,9 @@ compute_prediction_with_ci <- function(model = "knn", k, k_folds = 10, dt_list, 
 #' compute Average Silhouette Width score 
 #' @param data module matrix
 #' @param clustes vector with clusters labels
-calculate_asw <- function(data, clusters) {
+calculate_asw <- function(mat, clusters) {
   if (length(unique(clusters)) < 2) return(NA)
-  silhouette_result <- silhouette(clusters, dist(data))
+  silhouette_result <- silhouette(clusters, dist(mat))
   return(mean(silhouette_result[, 3]))
 }
 
@@ -763,9 +873,46 @@ calculate_asw <- function(data, clusters) {
 #' compute calinski_harabasz index (CHI)
 #' @param data module matrix
 #' @param clustes vector with clusters labels
-calculate_calinski_harabasz <- function(data, clusters) {
-  if (length(unique(clusters)) < 2) return(NA)
-  return(as.numeric(cluster.stats(dist(data), clusters)$ch))
+# calculate_calinski_harabasz <- function(data, clusters) {
+#   if (length(unique(clusters)) < 2) return(NA)
+#   return(as.numeric(cluster.stats(dist(data), clusters)$ch))
+# }
+
+#' Compute Modularity of each class
+#' @param mat module matrix
+#' @param clustes vector with clusters label' 
+#' @param k number of neighbors
+calculate_modularity = function(mat, clusters, k=10){
+  knn <- get.knn(mat, k = k)
+  
+  edges <- cbind(
+    rep(1:nrow(mat), each = k),
+    as.vector(knn$nn.index)
+  )
+  
+  g <- graph_from_edgelist(edges, directed = FALSE)
+  g <- simplify(g)
+  
+  q <- modularity(g, membership = clusters)
+  return(q)
+}
+
+
+#' Compute Davies Bouldin index
+#' @param mat module matrix
+#' @param clustes vector with clusters label' 
+calculate_davies_bouldin = function(mat, clusters){
+  db=intCriteria(traj = as.matrix(mat),
+                 part = as.integer(clusters),
+                 crit = "Davies_Bouldin")
+  return(db$davies_bouldin)
+}
+
+#' Compute DBCV index
+#' @param mat module matrix
+#' @param clustes vector with clusters label' 
+calculate_dbcv_index=function(mat, clusters){
+  return(dbcv_index(data=mat, partition=clusters, noiseLabel = -1))
 }
 
 #' compute ASW and CHI for one module matrix
@@ -775,22 +922,25 @@ evaluate_clustering <- function(mat_name, mat) {
   results_local <- data.frame()
   
   for (k in 2:min(5, nrow(mat))) {  # Limiter k à max nombre de lignes
-    
+    message(k, " clusters")
     clusters <- tryCatch({
       cutree(hclust(dist(mat)), k)
     }, error = function(e) return(rep(NA, nrow(mat))))
     
     if (any(is.na(clusters))) next  # Ignorer si clustering échoue
     
-    ch_index <- calculate_calinski_harabasz(mat, clusters)
+    # ch_index <- calculate_calinski_harabasz(mat, clusters)
     asw_score <- calculate_asw(mat, clusters)
+    # modularity = calculate_modularity(mat, clusters)
+    dbcv_index = calculate_dbcv_index(mat, clusters)
+    davies_bouldin = calculate_davies_bouldin(mat, clusters)
     
-    results_local <- rbind(results_local, data.frame(
-      Dataset = mat_name,
-      Clusters = k,
-      Metric = "Calinski-Harabasz",
-      Value = ch_index
-    ))
+    # results_local <- rbind(results_local, data.frame(
+    #   Dataset = mat_name,
+    #   Clusters = k,
+    #   Metric = "Calinski-Harabasz",
+    #   Value = ch_index
+    # ))
     
     
     results_local <- rbind(results_local, data.frame(
@@ -799,6 +949,30 @@ evaluate_clustering <- function(mat_name, mat) {
       Metric = "ASW Score",
       Value = asw_score
     ))
+    
+    results_local <- rbind(results_local, data.frame(
+      Dataset = mat_name,
+      Clusters = k,
+      Metric = "Davies Bouldin",
+      Value = davies_bouldin
+    ))
+    
+    
+    # results_local <- rbind(results_local, data.frame(
+    #   Dataset = mat_name,
+    #   Clusters = k,
+    #   Metric = "Modularity",
+    #   Value = modularity
+    # ))
+    
+    
+    results_local <- rbind(results_local, data.frame(
+      Dataset = mat_name,
+      Clusters = k,
+      Metric = "DBCV index",
+      Value = dbcv_index
+    ))
+    
   }
   return(results_local)
 }
@@ -821,15 +995,21 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
   
   export = list(matrix_list=matrix_list,
                 evaluate_clustering=evaluate_clustering,
-                calculate_asw=calculate_asw,
-                calculate_calinski_harabasz=calculate_calinski_harabasz)
+                calculate_asw=calculate_asw
+                # ,calculate_calinski_harabasz=calculate_calinski_harabasz
+                )
   
   
+  #Version parallélisée
+  # cl_res_list=future_lapply(names(matrix_list), FUN = function(mat_name){
+  #   cat(paste0(mat_name,"\n"))
+  #   return(evaluate_clustering(mat_name, mat = matrix_list[[mat_name]]$module_matrix))
+  # }, future.seed=T, future.globals = export, future.packages=packages_list)
   
-  cl_res_list=future_lapply(names(matrix_list), FUN = function(mat_name){
-    cat(paste0(mat_name,"\n"))
+  cl_res_list=lapply(names(matrix_list), FUN = function(mat_name){
+    message(mat_name)
     return(evaluate_clustering(mat_name, mat = matrix_list[[mat_name]]$module_matrix))
-  }, future.seed=T, future.globals = export, future.packages=packages_list)
+  })
   
   results <- data.table(do.call(rbind, cl_res_list))
   
@@ -843,6 +1023,7 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
   p <- ggplot(results, aes(x = Clusters, y = Value, color = Dataset)) +
     geom_line() +
     geom_point() +
+    scale_colour_viridis_d(option = "viridis")+
     geom_hline(
       data = means,
       aes(yintercept = mean_value, color = Dataset),
@@ -850,7 +1031,7 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
       show.legend = FALSE  
     ) +
     facet_wrap(~Metric, scales = "free_y") +
-    labs(x = "Number of clusters", y = "Indice", color = "Module Scoring Method", title="e") +
+    labs(x = "Number of clusters", y = "Indice", color = "Module Scoring Method") +
     theme_minimal()
   
   
@@ -863,51 +1044,230 @@ compute_clustering_quality = function(matrix_list, num_cores=NULL){
 #' @param data one module matrix to project : data.table with modules in column and individuals in line.
 #' @param k number of neighbors for PHATE
 #' @param meta_data a data.table with clinical data to merge
-plot_phate=function(data, k, meta_data){
+plot_phate=function(data, k, meta_data, omic_id){
   clinical_vars = c("diag","EXPRESSION_PRECISESADS_IFN","AUTOANTIBODY_SSA","AUTOANTIBODY_SSA_52","AUTOANTIBODY_SSA_60","AUTOANTIBODY_SSB")
   
   #1. phate
-  use_python("/usr/bin/python3", required = TRUE)
+  
   set.seed(123)
-  phate = data.table(phateR::phate(data = data,ndim = 2, knn.dist.method = "euclidean", mds.dist.method = "euclidean", knn=15, verbose=F)$embedding)
+  phate = data.table(phateR::phate(data = data,ndim = 2, knn.dist.method = "euclidean", mds.dist.method = "euclidean", knn=k, verbose=T, mds.solver = "smacof")$embedding)
   colnames(phate)=c("PHATE1","PHATE2")
   phate$SAMPLING_OMIC_NUMBER= omic_id
   phate[meta_data, on = "SAMPLING_OMIC_NUMBER", (clinical_vars) := mget(paste0("i.", clinical_vars))]
   phate$diag=diag
   
+  theme_cadre <- theme(
+    panel.border = element_rect(
+      colour = "black",
+      fill   = NA,
+      linewidth = 0.6
+    ),
+    plot.background = element_rect(
+      colour = NA,
+      fill   = NA
+    ),
+    panel.spacing = unit(2, "pt")
+  )
+  
   #2. plots
-  p1 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = factor(diag))) +
+  p1 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = factor(diag))) +
+    geom_point(size=1.5, alpha=0.5) +
+    theme_minimal()+
+    labs(color="DIAGNOSIS")+
+    scale_color_manual(values = c("Control"="green","SjD"="blue"))+
+    # coord_fixed()+
+    theme(legend.position = "none")+ theme_cadre
+  
+  
+  p2 = ggplot(phate, aes(x = PHATE1, y = PHATE2, color = EXPRESSION_PRECISESADS_IFN)) +
+    geom_point(size = 1.5, alpha = 0.7) +
+    scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+    theme_minimal()+
+    labs(color="IFN score")+
+    # coord_fixed()+
+    theme(legend.position = "none") + theme_cadre
+  
+    
+  
+  
+  # p3 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA)) +
+  #   geom_point(size = 1.5, alpha = 0.7) +
+  #   scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+  #   theme_minimal()+
+  #   labs(color="SSA Autoantibodies"))
+  # 
+  # p4 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_52)) +
+  #   geom_point(size = 1.5, alpha = 0.7) +
+  #   scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+  #   theme_minimal()+
+  #   labs(color="SSA-52 Autoantibodies"))
+  # 
+  # p5 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_60)) +
+  #   geom_point(size = 1.5, alpha = 0.7) +
+  #   scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+  #   theme_minimal()+
+  #   labs(color="SSA-60 Autoantibodies"))
+  # 
+  # p6 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSB)) +
+  #   geom_point(size = 1.5, alpha = 0.7) +
+  #   scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
+  #   theme_minimal()+
+  #   labs(color="SSB Autoantibodies"))
+  
+  # a <- wrap_elements(full = p1)
+  # b <- wrap_elements(full = p2)
+  # # c <- wrap_elements(full = p3)
+  # # d <- wrap_elements(full = p4)
+  # # e <- wrap_elements(full = p5)
+  # # f <- wrap_elements(full = p6)
+  # 
+  # # comb <- a/b/c/d/e/f  +
+  # #   plot_layout(ncol = 3, guides = "collect") +
+  # #   plot_annotation(tag_levels = "a") &
+  # #   theme(
+  # #     plot.tag          = element_text(size = 20, face = "bold"),
+  # #     plot.tag.position = c(0, 1)
+  # #   )
+  # 
+  # comb <- a/b  +
+  #   plot_layout(ncol = 2, guides = "collect") +
+  #   # plot_annotation(tag_levels = "a") &
+  #   theme(
+  #     plot.tag          = element_text(size = 20, face = "bold"),
+  #     plot.tag.position = c(0, 1)
+  #   )
+  
+  # #3. return combined plot
+  # plot_list=list(p1,p2,p3,p4,p5,p6)
+  # combined_plots <- Reduce(`+`, plot_list)
+  return(list(plot=list(p1, p2), phate=phate))
+}
+
+
+
+
+
+#' compute comparison of module AUC to predict Control/Diseased, according to each config
+#' @param folder_for_mgedo_obj folder where are stored .rds mgedo_objects.
+compute_auc_modules_grid_search = function(folder_for_data){
+  
+  files = list.files(folder_for_data, full.names = T)
+  
+  #1. Computing AUC for each module and each element of matrix_list
+  auc_results <- list()
+  
+  for(file in files){
+    print(file)
+    file_name = sub("\\.rds$", "", basename(file))
+
+    
+    obj = readRDS(file = file)
+    dt = obj$module_matrix
+    modules = colnames(dt)
+    dt$diag = obj$diag
+    
+    for (pathway in setdiff(x = colnames(dt), y = c("diag"))) {
+      # print(paste("method=", file_name, ". module=", pathway))
+      auc_value <- auc(dt$diag, dt[[pathway]], quiet=T)
+      
+      auc_results <- append(auc_results, list(data.table(
+        config = file_name, 
+        pathway = pathway,
+        auc = as.numeric(auc_value)
+      )))
+    }
+    
+  }
+  dt_auc_results <- rbindlist(auc_results, use.names = TRUE, fill = TRUE)
+  
+  dt_auc_results[, median_auc := median(auc), by=config]
+  dt_auc_results <- dt_auc_results[order(-median_auc)]
+  
+  
+  levels=rev(unique(dt_auc_results$config))
+  dt_auc_results[, config := factor(config, levels = levels)]
+  
+
+  
+  #3. AUC face to face
+  auc_wide <- dcast(dt_auc_results, pathway ~ config, value.var = "auc")
+  
+  cat("Finished !\n")
+
+
+  return(auc_wide)
+}
+
+
+
+
+
+
+#' plot UMAP/PHATE projections of module matrices
+#' @param data one module matrix to project : data.table with modules in column and individuals in line.
+#' @param k number of neighbors for PHATE
+#' @param meta_data a data.table with clinical data to merge
+plot_module_matrix=function(data, k, meta_data, omic_id, method=c("umap","phate"), metric=c("cosine","euclidean","correlation"), decay=NULL){
+  clinical_vars = c("diag","EXPRESSION_PRECISESADS_IFN","AUTOANTIBODY_SSA_CLASS","AUTOANTIBODY_SSA_52_CLASS","AUTOANTIBODY_SSA_60_CLASS","AUTOANTIBODY_SSB_CLASS")
+  
+  #1. UMAP
+  if(method=="umap"){
+  set.seed(123)
+  data_r = data.table(uwot::umap(X = data,n_neighbors = k,n_components = 2, metric = metric))
+  }
+  
+  if(method=="phate"){
+    use_python("/usr/bin/python3", required = TRUE)
+    set.seed(123)
+    data_r = data.table(phateR::phate(data = data,ndim = 2, knn.dist.method = metric, mds.dist.method = metric, knn=k, verbose=F)$embedding, decay=decay)
+    if("decay" %in% colnames(data_r)){data_r[,decay:=NULL]}
+  }
+  
+  #PHATE
+  colnames(data_r)=c("CP_1","CP_2")
+  
+  data_r$SAMPLING_OMIC_NUMBER= omic_id
+  data_r[meta_data, on = "SAMPLING_OMIC_NUMBER", (clinical_vars) := mget(paste0("i.", clinical_vars))]
+  data_r$diag=diag
+  
+  
+  #2. plots
+  p1 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = factor(diag))) +
                  geom_point(size=1.5, alpha=0.5) +
                  theme_minimal()+
                  labs(color="DIAGNOSIS")+
-                 scale_color_manual(values = c("Control"="green","SjD"="blue")))
+                 scale_color_manual(values = c("Control"="green","SjD"="blue")))+
+    theme(axis.text.x=element_blank(), axis.text.y=element_blank())
   
-  p2 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = EXPRESSION_PRECISESADS_IFN)) +
+  
+  p2 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = EXPRESSION_PRECISESADS_IFN)) +
                  geom_point(size = 1.5, alpha = 0.7) +
                  scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
                  theme_minimal()+
-                 labs(color="IFN score")
+                 labs(color="IFN score")+
+                 theme(axis.text.x=element_blank(), axis.text.y=element_blank())
+               
   )
   
-  p3 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA)) +
+  p3 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = AUTOANTIBODY_SSA_CLASS)) +
                  geom_point(size = 1.5, alpha = 0.7) +
                  scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
                  theme_minimal()+
                  labs(color="SSA Autoantibodies"))
   
-  p4 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_52)) +
+  p4 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = AUTOANTIBODY_SSA_52_CLASS)) +
                  geom_point(size = 1.5, alpha = 0.7) +
                  scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
                  theme_minimal()+
                  labs(color="SSA-52 Autoantibodies"))
   
-  p5 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSA_60)) +
+  p5 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = AUTOANTIBODY_SSA_60_CLASS)) +
                  geom_point(size = 1.5, alpha = 0.7) +
                  scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
                  theme_minimal()+
                  labs(color="SSA-60 Autoantibodies"))
   
-  p6 = as_grob(ggplot(phate, aes(x = PHATE1, y = PHATE2, color = AUTOANTIBODY_SSB)) +
+  p6 = as_grob(ggplot(data_r, aes(x = CP_1, y = CP_2, color = AUTOANTIBODY_SSB_CLASS)) +
                  geom_point(size = 1.5, alpha = 0.7) +
                  scale_color_gradientn(colors = c("blue", "cyan", "yellow", "red")) +  
                  theme_minimal()+
@@ -931,8 +1291,11 @@ plot_phate=function(data, k, meta_data){
   # #3. return combined plot
   # plot_list=list(p1,p2,p3,p4,p5,p6)
   # combined_plots <- Reduce(`+`, plot_list)
-  return(list(plot=comb, phate=phate))
+  return(list(plot=comb, data_r=data_r))
 }
+
+
+
 
 
 
@@ -974,7 +1337,7 @@ plot_umap_modules=function(matrix_list, k, distance_metric){
     geom_point(alpha=0.5)+ labs(title = "b")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   plot_umap_pca1 = ggplot(umap_list$PCA1, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
     geom_point(alpha=0.5)+ labs(title = "c")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
-  plot_umap_m_zscore = ggplot(umap_list$MEAN_Z_SCORES, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
+  plot_umap_m_zscore = ggplot(umap_list$MZS, aes(x=UMAP_1, y=UMAP_2, color=ifn_module))+
     geom_point(alpha=0.5)+ labs(title = "d")+theme_minimal()+scale_colour_manual(values = c("FALSE"="black","TRUE"="red"))
   
   plot_list=list(plot_gedo, plot_umap_gedo, plot_umap_pca1, plot_umap_m_zscore)
@@ -982,6 +1345,150 @@ plot_umap_modules=function(matrix_list, k, distance_metric){
   combined_plots <- Reduce(`+`, plot_list)
   return(combined_plots)
   
+}
+
+
+
+
+
+#' plot UMAP projections of gene modules in the patient space
+#' @param model "rf" or "knn"
+#' @param k the number of neighbors for KNN. 
+#' @param k_folds the number of folds 
+#' @param dt_list the list of module matrices
+#' @param num_cores the number of cores for parallelization
+#' @param y vector with continuous values to predict
+
+compute_regression_with_cv <- function(
+    model = "knn",
+    k,
+    k_folds = 50,
+    dt_list,
+    num_cores = NULL,
+    y
+) {
+  
+  library(data.table)
+  library(caret)
+  library(randomForest)
+  
+  if (is.null(num_cores)) {
+    num_cores <- 1
+  }
+  
+  message("Computing k-fold CV (regression)")
+  
+  res_list <- lapply(names(dt_list), function(dt_name) {
+    
+    cat(paste0("Method: ", dt_name, "\n"))
+    
+    #Load & protect data 
+    dt <- data.table::copy(dt_list[[dt_name]]$module_matrix)
+    
+    # Sanity checks
+    stopifnot(nrow(dt) == length(y))
+    
+    # Ensure no leftover target
+    if ("y" %in% names(dt)) {
+      dt[, y := NULL]
+    }
+    
+    # Attach target
+    dt[, y := as.numeric(y)]
+    dt <- dt[!is.na(y)]
+    
+    #Train / test split (train only used for CV)
+    set.seed(423)
+    train_idx <- caret::createDataPartition(dt$y, p = 0.7, list = FALSE)
+    trainData <- dt[train_idx, ]
+    
+    #K-fold CV on training set
+    set.seed(423)
+    folds <- caret::createFolds(trainData$y, k = k_folds, list = TRUE)
+    
+    fold_results <- lapply(seq_along(folds), function(i) {
+      
+      test_idx  <- folds[[i]]
+      testFold <- trainData[test_idx, ]
+      trainFold <- trainData[-test_idx, ]
+      
+      #Train model
+      if (model == "knn") {
+        
+        regressor <- caret::knnreg(
+          x = trainFold[, !"y", with = FALSE],
+          y = trainFold$y,
+          k = k
+        )
+        
+        preds <- predict(
+          regressor,
+          newdata = testFold[, !"y", with = FALSE]
+        )
+        
+      } else if (model == "rf") {
+        
+        regressor <- randomForest::randomForest(
+          y ~ .,
+          data = trainFold,
+          ntree = 400
+        )
+        
+        preds <- predict(regressor, newdata = testFold)
+        
+      } else {
+        stop("Unsupported model type. Choose 'knn' or 'rf'.")
+      }
+      
+      obs <- testFold$y
+      
+      # Metrics 
+      rmse <- sqrt(mean((obs - preds)^2))
+      mae  <- mean(abs(obs - preds))
+      
+      list(
+        fold = i,
+        rmse = rmse,
+        mae  = mae
+      )
+    })
+    
+    # Fold-level table 
+    folds_dt <- rbindlist(lapply(fold_results, function(res) {
+      data.table(
+        method = dt_name,
+        fold   = res$fold,
+        RMSE   = res$rmse,
+        MAE    = res$mae
+      )
+    }))
+    
+    # Summary table
+    summary_dt <- folds_dt[, .(
+      RMSE_mean = mean(RMSE),
+      RMSE_sd   = sd(RMSE),
+      MAE_mean  = mean(MAE),
+      MAE_sd    = sd(MAE)
+    ), by = method]
+    
+    list(
+      summary = summary_dt,
+      folds   = folds_dt
+    )
+  })
+  
+  # Aggregate across methods
+  summary_table <- rbindlist(lapply(res_list, `[[`, "summary"))
+  folds_table   <- rbindlist(lapply(res_list, `[[`, "folds"))
+  
+  setorder(summary_table, RMSE_mean)
+  
+  message("Regression CV completed")
+  
+  return(list(
+    summary = summary_table,
+    folds   = folds_table
+  ))
 }
 
 

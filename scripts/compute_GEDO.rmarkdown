@@ -16,7 +16,13 @@ execute:
 knitr::opts_chunk$set(fig.path = "../docs/figures/tutorial_")
 ```
 
+
+
+
 # 1. Packages and functions
+
+
+
 
 ```{r packages and functions}
 
@@ -44,7 +50,13 @@ folder_to_data ="/home/clem/GEDO/data/"
 
 ```
 
+
+
+
 # 2. Loading data
+
+
+
 
 ```{r loading data}
 
@@ -178,9 +190,15 @@ theme_cadre <- theme(
 
 ```
 
+
+
+
 # 3. Computing GEDO
 
 ## 3.1. Graph G with euclidean distances
+
+
+
 
 ```{r gedo}
 
@@ -214,7 +232,13 @@ noized_gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
 
 ```
 
+
+
+
 ## 3.2. Graph G with correlation distances
+
+
+
 
 ```{r gedo corr}
 if(file.exists(paste0(folder_for_res, "gedo_corr_obj.rds"))){
@@ -246,7 +270,13 @@ saveRDS(noized_gedo_corr_obj, file=paste0(folder_for_res, "noized_gedo_corr_obj.
 noized_gedo_corr_obj$diag=factor(diag,levels=c("SjD","Control"))
 ```
 
+
+
+
 # 4. Computing UMAP - GEDO
+
+
+
 
 ```{r umap_gedo}
 
@@ -280,7 +310,13 @@ saveRDS(noized_umap_gedo_obj, file=paste0(folder_for_res, "noized_umap_gedo_obj.
 noized_umap_gedo_obj$diag=factor(diag,levels=c("SjD","Control"))
 ```
 
+
+
+
 ## AUC of gene modules in GEDO module matrix :
+
+
+
 
 ```{r auc gedo}
 #| fig.width: 12
@@ -292,7 +328,13 @@ ggsave(auc$plot_auc, file=paste0(folder_for_res, "auc_gedo.pdf"), width = 15)
 
 ```
 
+
+
+
 # 6. Detail of transition score on GSE1740_UNSTIM_VS_IFNA_STIMULATED_MCSF_DERIVED_MACROPHAGE_DN module
+
+
+
 
 ```{r detail one module}
 #| fig.width: 20
@@ -318,7 +360,13 @@ ggsave(plot,file=paste0(folder_for_res,"GSE1740_UNSTIM_VS_IFNA_STIMULATED_MCSF_D
 auc(gedo_obj$diag, plots_module$res$TS)
 ```
 
+
+
+
 ## Random example to test for overfitting (gene expression values shuffled) :
+
+
+
 
 ```{r overfitting}
 #| fig.width: 20
@@ -344,7 +392,13 @@ ggsave(plot_random,file=paste0(folder_for_res,"random_GSE1740_UNSTIM_VS_IFNA_STI
 auc(gedo_obj$diag, plots_module$res$TS)
 ```
 
+
+
+
 # 7. Computing module matrix with PCA1
+
+
+
 
 ```{r pca1}
 
@@ -379,7 +433,13 @@ saveRDS(noized_pca1_module_matrix, file=paste0(folder_for_res, "noized_pca1_obj.
 }
 ```
 
+
+
+
 # 8. Computing module matrix with mean of z-scores
+
+
+
 
 ```{r mean z score}
 
@@ -413,7 +473,13 @@ saveRDS(noized_mean_z_score_module_matrix, file=paste0(folder_for_res,"noized_mz
 }
 ```
 
+
+
+
 # 8. Computing module matrix with ssGSEA
+
+
+
 
 ```{r compute ssGSEA}
 
@@ -485,7 +551,13 @@ saveRDS(noized_ssgsea_obj, file = paste0(folder_for_res, "noized_ssgsea_obj.rds"
 }
 ```
 
+
+
+
 # 8. Computing module matrix with GSVA
+
+
+
 
 ```{r compute GSVA}
 
@@ -555,9 +627,15 @@ rm(rna_seq_data_noized)
 
 ```
 
+
+
+
 # 
 
 # 9. Class prediction performance (SjD vs. CTRL) for each gene module
+
+
+
 
 ```{r set up matrix_list}
 
@@ -801,7 +879,13 @@ saveRDS(object = as_grob(plot_boxplot_auc_noized), file=paste0(folder_for_res,"h
 
 ```
 
+
+
+
 # 10. Module Matrices classification performance (SjD vs. CTRL)
+
+
+
 
 ```{r rf and knn}
 
@@ -1038,7 +1122,13 @@ saveRDS(object = h_grob, file=paste0(folder_for_res,"i.rds"))
 
 ```
 
+
+
+
 # 11. KNN IFN
+
+
+
 
 ```{r knn ifn}
 
@@ -1208,9 +1298,15 @@ saveRDS(object = as_grob(plot_knn_ifn), file=paste0(folder_for_res,"e.rds"))
 
 ```
 
+
+
+
 # 11. Heatmaps of module matrices
 
 ## Combined Heatmaps :
+
+
+
 
 ```{r running heatmaps}
 
@@ -1410,7 +1506,13 @@ ggsave(
 
 ```
 
+
+
+
 # 12. Clustering quality evaluation
+
+
+
 
 ```{r clustering quality}
 #| fig.width: 15
@@ -1465,7 +1567,13 @@ saveRDS(object = as_grob(clustering_plot), file=paste0(folder_for_res,"f.rds"))
 # ggsave(combined_plot,file=paste0(folder_for_res,"module_auc_rocs_rf_knn_clustering.pdf" ), width = 15, height = 16)
 ```
 
+
+
+
 # 13. Combined figures
+
+
+
 
 ```{r combine res figures}
 
@@ -1520,9 +1628,15 @@ ggsave(
 )
 ```
 
+
+
+
 # 14. Enrichment of clinical features in PHATE visualizations
 
 ## GEDO :
+
+
+
 
 ```{r phate gedo Mm}
 
@@ -1539,7 +1653,13 @@ knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo.pdf"
 
 ```
 
+
+
+
 ## GEDOcorr :
+
+
+
 
 ```{r phate_gedo_corr}
 
@@ -1553,7 +1673,13 @@ knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_gedo_corr
 
 ```
 
+
+
+
 ## UMAP-GEDO :
+
+
+
 
 ```{r phate umap gedo}
 #| fig.width: 12
@@ -1567,7 +1693,13 @@ knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_umap_gedo
 
 ```
 
+
+
+
 ## PCA1 :
+
+
+
 
 ```{r phate pca 1}
 
@@ -1582,7 +1714,13 @@ knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_pca1.pdf"
 
 ```
 
+
+
+
 ## MEAN OF Z-SCORES :
+
+
+
 
 ```{r phate meanzscore}
 
@@ -1597,7 +1735,13 @@ knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_mean_z_sc
 
 ```
 
+
+
+
 ## ssGSEA :
+
+
+
 
 ```{r phate ssgsea}
 #| fig.width: 12
@@ -1609,7 +1753,13 @@ plot_ssgsea= plot_phate(data=matrix_list_without_noize$ssGSEA$module_matrix, k =
 knitr::include_graphics(paste0(folder_for_res,"phate_clinical_features_ssgsea.pdf"))
 ```
 
+
+
+
 ## GSVA :
+
+
+
 
 ```{r phate gsva}
 #| fig.width: 12
@@ -1686,7 +1836,13 @@ ggsave(plot=final_plot, filename = paste0(folder_for_res,"phate_combined.pdf"), 
 
 ```
 
+
+
+
 # 15. Benchmark methods (time of running)
+
+
+
 
 ```{r benchmark}
 
@@ -1850,13 +2006,20 @@ print(paste("Ratio with GSVA : ", mean_gedo_corr / summary_stats[expression =="G
 
 ```
 
+
+
+
 ```         
 ```
 
 # 16. Session information, Packages and versions
+
+
+
 
 ```{r session info}
 
 devtools::session_info()
 
 ```
+
